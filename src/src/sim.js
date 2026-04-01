@@ -272,7 +272,6 @@
 				update = true,
 			) {
 				var dcIndex, i, l, len1, len2, m, p, player, ref, ref1;
-				print("playerJoin", pid, name, color);
 				ref = this.players;
 				for (l = 0, len1 = ref.length; l < len1; l++) {
 					p = ref[l];
