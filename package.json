@@ -2,7 +2,6 @@
     "name": "IstrolidServer",
     "version": "0.1.0",
     "description": "Istrolid Server",
-    "type": "module",
     "main": "server.js",
     "dependencies": {
         "ws": "^6.1.0"

@@ -12,7 +12,6 @@ require('./src/src/protocol.js');
 require('./src/src/maths.js');
 require('./src/src/maps.js');
 require('./src/src/sim.js');
-require('./src/src/interpolator.js');
 require('./src/src/things.js');
 require('./src/src/unit.js');
 require('./src/src/parts.js');
