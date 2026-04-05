@@ -189,8 +189,9 @@
 				}
 			}
 
-			configGame(p, gameType) {
-				var l, len1, len2, m, player, ref, ref1;
+			configGame(p, config) {
+				var gameType, l, len1, len2, m, player, ref, ref1;
+				gameType = config?.type;
 				print("config game!", gameType);
 				if (this.state !== "waiting") {
 					print("Can't set config on game in progress");
@@ -1068,60 +1069,40 @@
 					ref2,
 					ref3,
 					ref4,
-					ref5,
 					t,
 					thing;
 				this.timeStart("sim");
 				this.step += 1;
+
+				this.timeStart("startingSim");
 				this.startingSim();
+				this.timeEnd("startingSim");
+
+				this.timeStart("checkAfkPlayers");
 				this.checkAfkPlayers();
+				this.timeEnd("checkAfkPlayers");
+
+				this.timeStart("whoIsHost");
 				this.whoIsHost();
+				this.timeEnd("whoIsHost");
+
 				this.timeIt("spacesRebuild", () => {
 					return this.spacesRebuild();
 				});
+
 				// sort some lists
-				this.units = [
-					function () {
-						var ref, results;
-						ref = this.things;
-						results = [];
-						for (id in ref) {
-							t = ref[id];
-							if (t.unit) {
-								results.push(t);
-							}
-						}
-						return results;
-					}.call(this),
-				];
-				this.bullets = [
-					function () {
-						var ref, results;
-						ref = this.things;
-						results = [];
-						for (id in ref) {
-							t = ref[id];
-							if (t.bullet) {
-								results.push(t);
-							}
-						}
-						return results;
-					}.call(this),
-				];
-				this.commandPoint = [
-					function () {
-						var ref, results;
-						ref = this.things;
-						results = [];
-						for (id in ref) {
-							t = ref[id];
-							if (t.bullet) {
-								results.push(t);
-							}
-						}
-						return results;
-					}.call(this),
-				];
+				this.timeStart("buildLists");
+				this.units = [];
+				this.bullets = [];
+				this.commandPoints = [];
+				for (id in this.things) {
+					t = this.things[id];
+					if (t.unit) this.units.push(t);
+					if (t.bullet) this.bullets.push(t);
+					if (t.commandPoint) this.commandPoints.push(t);
+				}
+				this.timeEnd("buildLists");
+
 				this.timeStart("death");
 				ref = this.things;
 				for (id in ref) {
@@ -1134,6 +1115,7 @@
 					}
 				}
 				this.timeEnd("death");
+
 				this.timeStart("tick");
 				ref1 = this.things;
 				for (id in ref1) {
@@ -1143,6 +1125,7 @@
 					}
 				}
 				this.timeEnd("tick");
+
 				this.timeStart("move");
 				ref2 = this.things;
 				for (id in ref2) {
@@ -1152,10 +1135,12 @@
 					}
 				}
 				this.timeEnd("move");
+
 				this.timeIt("unitsCollide", () => {
 					return this.unitsCollide();
 				});
-				//@timeIt "unitsCollide", => @accurateUnitsCollide()
+
+				this.timeStart("playerTick");
 				if (this.state === "running" || this.serverType === "sandbox") {
 					ref3 = this.players;
 					for (l = 0, len1 = ref3.length; l < len1; l++) {
@@ -1165,6 +1150,9 @@
 						}
 					}
 				}
+				this.timeEnd("playerTick");
+
+				this.timeStart("playerSide");
 				ref4 = this.players;
 				for (m = 0, len2 = ref4.length; m < len2; m++) {
 					player = ref4[m];
@@ -1175,20 +1163,17 @@
 						player.side = "spectators";
 					}
 				}
+				this.timeEnd("playerSide");
+
+				this.timeStart("victory");
 				if (this.serverType === "survival") {
 					survival.simulate(this);
 					survival.victoryConditions(this);
 				} else {
 					this.victoryConditions();
-					if (typeof this.extra === "function") {
-						this.extra();
-					}
-					if ((ref5 = this.galaxyStar) != null) {
-						if (typeof ref5.tick === "function") {
-							ref5.tick();
-						}
-					}
 				}
+				this.timeEnd("victory");
+
 				return this.timeEnd("sim");
 			}
 
@@ -1342,104 +1327,71 @@
 
 			// prevent units from occupying same spotColor
 			unitsCollide() {
-				var _push,
-					distance,
-					force,
-					i,
-					j,
-					k,
-					l,
-					len1,
-					missles,
-					n,
-					ratio,
-					results,
-					t,
-					u,
-					u2,
-					units;
+				var distance, force, i, j, n, ratio, t, u, u2, units, missiles;
+
 				n = this.step % 2;
-				units = function () {
-					var ref, results;
-					ref = this.things;
-					results = [];
-					for (k in ref) {
-						t = ref[k];
-						if (t.unit && !t.fixed && t.active) {
-							results.push(t);
-						}
+
+				// Build both lists in single pass
+				units = [];
+				missiles = [];
+				for (var k in this.things) {
+					t = this.things[k];
+					if (t.unit && !t.fixed && t.active) {
+						units.push(t);
 					}
-					return results;
-				}.call(this);
-				units.sort(function (a, b) {
-					return a.pos[n] - b.pos[n];
-				});
+					if (t.missile) {
+						missiles.push(t);
+					}
+				}
+
+				units.sort((a, b) => a.pos[n] - b.pos[n]);
 				this.axisSort = n;
 				this.axisSortedUnits = units;
-				missles = function () {
-					var ref, results;
-					ref = this.things;
-					results = [];
-					for (k in ref) {
-						t = ref[k];
-						if (t.missile) {
-							results.push(t);
+
+				missiles.sort((a, b) => a.pos[n] - b.pos[n]);
+				this.axisSortedMissles = missiles;
+
+				// Pre-allocate vectors outside loops
+				var _offset = v2.create();
+				var _push = v2.create();
+
+				// Collision detection - removed useless results arrays
+				for (i = 0; i < units.length; i++) {
+					u = units[i];
+					for (j = -4; j <= 4; j++) {
+						if (j === 0) continue;
+						u2 = units[i + j];
+						if (!u2) continue;
+
+						v2.sub(u.pos, u2.pos, _offset);
+						distance = v2.mag(_offset);
+
+						if (distance < 0.001) {
+							_offset[0] = 0;
+							_offset[1] = -1;
+							distance = 1;
+						}
+
+						if (distance < u.radius + u2.radius) {
+							force = u.radius + u2.radius - distance;
+							ratio = u2.mass / (u.mass + u2.mass);
+
+							v2.scale(
+								_offset,
+								((ratio * force) / distance) * 0.02,
+								_push,
+							);
+							v2.add(u.pos, _push);
+
+							v2.scale(
+								_offset,
+								((-(1 - ratio) * force) / distance) * 0.02,
+								_push,
+							);
+							v2.add(u2.pos, _push);
 						}
 					}
-					return results;
-				}.call(this);
-				missles.sort(function (a, b) {
-					return a.pos[n] - b.pos[n];
-				});
-				this.axisSortedMissles = missles;
-				results = [];
-				for (i = l = 0, len1 = units.length; l < len1; i = ++l) {
-					u = units[i];
-					results.push(
-						(function () {
-							var m, results1;
-							results1 = [];
-							for (j = m = -4; m <= 4; j = ++m) {
-								u2 = units[i + j];
-								if (j !== 0 && u2) {
-									v2.sub(u.pos, u2.pos, _offset);
-									distance = v2.mag(_offset);
-									// if too close, deal with it
-									if (distance < 0.001) {
-										_offset = [0, -1];
-										distance = 1;
-									}
-									if (distance < u.radius + u2.radius) {
-										force = u.radius + u2.radius - distance;
-										ratio = u2.mass / (u.mass + u2.mass);
-										_push = v2.create();
-										// push unit off
-										v2.scale(
-											_offset,
-											((ratio * force) / distance) * 0.02,
-											_push,
-										);
-										v2.add(u.pos, _push);
-										v2.scale(
-											_offset,
-											((-(1 - ratio) * force) /
-												distance) *
-												0.02,
-											_push,
-										);
-										results1.push(v2.add(u2.pos, _push));
-									} else {
-										results1.push(void 0);
-									}
-								} else {
-									results1.push(void 0);
-								}
-							}
-							return results1;
-						})(),
-					);
 				}
-				return results;
 			}
 
 			send() {
