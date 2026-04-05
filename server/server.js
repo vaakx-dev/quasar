@@ -16,6 +16,9 @@ class Server {
 		this.gameLoop = null;
 		this.startTime = Date.now();
 
+		// Bind handlers so we can remove them later
+		this._broadcastHandler = (packet) => this._broadcast(packet);
+
 		this._setupWebSocket();
 		this._setupBusListeners();
 		this._createWorkers();
@@ -52,6 +55,8 @@ class Server {
 
 	stop() {
 		logger.info("Stopping server");
+		this._removeBusListeners();
+
 		this.gameLoop.stop();
 		Object.values(this.clientWorkers).forEach(w => w.listener.close());
 		this.wss.close();
@@ -71,7 +76,12 @@ class Server {
 	}
 
 	_setupBusListeners() {
-		bus.on('clients:broadcast', (packet) => this._broadcast(packet));
+		bus.on('clients:broadcast', this._broadcastHandler);
+	}
+
+	_removeBusListeners() {
+		// Remove bus listener to prevent multiple Servers responding
+		bus.off('clients:broadcast', this._broadcastHandler);
 	}
 
 	_createWorkers() {

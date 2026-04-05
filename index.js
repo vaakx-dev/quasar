@@ -5,11 +5,20 @@ const { Server } = require("./server/server");
 
 require("./game");
 
-global.sim = new Sim();
-sim.serverType = "sandbox";
-sim.start();
+// Helper functions
+function start() {
+    global.sim = new Sim();
+    sim.serverType = "sandbox";
+    sim.start();
+    global.server = new Server(sim, config);
+}
 
-global.server = new Server(sim, config);
+function stop() {
+    if (server) server.stop();
+}
+
+// Initial server start
+start();
 
 // Command registry
 const commands = {
@@ -18,16 +27,16 @@ const commands = {
     },
 
     stop: () => {
-        server.stop();
+        stop();
     },
 
     start: () => {
-        global.server = new Server(sim, config);
+        start();
     },
 
     restart: () => {
-        server.stop();
-        global.server = new Server(sim, config);
+        stop();
+        start();
     },
 
     status: () => {
@@ -66,7 +75,7 @@ const commands = {
     },
 
     exit: () => {
-        server.stop();
+        stop();
         process.exit(0);
     }
 };
@@ -90,6 +99,6 @@ rl.on("line", (input) => {
 // Graceful shutdown
 process.on("SIGINT", () => {
     logger.info("Received SIGINT, shutting down");
-    server.stop();
+    stop();
     process.exit(0);
 });

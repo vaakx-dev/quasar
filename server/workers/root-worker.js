@@ -15,22 +15,26 @@ class RootWorker {
 		this.ws = null;
 		this.reconnectAttempts = 0;
 		this.connected = false;
+		this.stopped = true;
 
-		// Listen for validation requests from ClientWorker
-		bus.on('player:validate', (request) => this._handleValidationRequest(request));
-
-		// Generic send - any component can emit data to root
-		bus.on('root:send', (data) => this.send(data));
+		// Bind handlers so we can remove them later
+		this._validateHandler = (request) => this._handleValidationRequest(request);
+		this._sendHandler = (data) => this.send(data);
 	}
 
 	// === PUBLIC API ===
 
 	start() {
+		this.stopped = false;
+		this._setupBusListeners();
 		this._connect();
 	}
 
 	stop() {
 		logger.info("Stopping RootWorker");
+		this.stopped = true;
+		this._removeBusListeners();
+
 		if (this.listener) {
 			this.listener.close();
 		}
@@ -62,6 +66,20 @@ class RootWorker {
 	}
 
 	// === PRIVATE METHODS ===
+
+	_setupBusListeners() {
+		// Listen for validation requests from ClientWorker
+		bus.on('player:validate', this._validateHandler);
+
+		// Generic send - any component can emit data to root
+		bus.on('root:send', this._sendHandler);
+	}
+
+	_removeBusListeners() {
+		// Remove bus listeners to prevent multiple RootWorkers responding
+		bus.off('player:validate', this._validateHandler);
+		bus.off('root:send', this._sendHandler);
+	}
 
 	_parseMessage(msg) {
 		const data = JSON.parse(msg);
@@ -100,6 +118,7 @@ class RootWorker {
 
 	_onClose() {
 		this.connected = false;
+		if (this.stopped) return;
 
 		// Exponential backoff with jitter
 		const delay = Math.min(
