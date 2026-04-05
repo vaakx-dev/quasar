@@ -1,24 +1,20 @@
-const config = require("./config.json");
 const WebSocket = require("ws");
-const { logger } = require("./server/lib/logger");
-const { bus } = require("./server/lib/bus");
-const { ClientWorker } = require("./server/workers/client-worker");
-const { RootWorker } = require("./server/workers/root-worker");
-const { GameLoop } = require("./server/workers/game-loop");
-
-require("./game");
-
-global.sim = new Sim();
-sim.serverType = "sandbox";
-sim.start();
+const { logger } = require("./lib/logger");
+const { bus } = require("./lib/bus");
+const { ClientWorker } = require("./workers/client-worker");
+const { RootWorker } = require("./workers/root-worker");
+const { GameLoop } = require("./workers/game-loop");
 
 class Server {
-	constructor() {
+	constructor(sim, config) {
+		this.sim = sim;
+		this.config = config;
 		this.players = {};
 		this.clientWorkers = {};
 		this.wss = null;
 		this.rootWorker = null;
 		this.gameLoop = null;
+		this.startTime = Date.now();
 
 		this._setupWebSocket();
 		this._setupBusListeners();
@@ -28,7 +24,7 @@ class Server {
 	// === PUBLIC API ===
 
 	send(player, data) {
-		const packet = sim.zJson.dumpDv(data);
+		const packet = this.sim.zJson.dumpDv(data);
 		const client = player.ws;
 		if (client && client.readyState === WebSocket.OPEN) {
 			client.send(packet);
@@ -43,6 +39,17 @@ class Server {
 		this.rootWorker.say(msg);
 	}
 
+	kick(name) {
+		const player = Object.values(this.players).find(p => p.name === name);
+		if (!player) return false;
+		if (player.ws) player.ws.close();
+		return true;
+	}
+
+	getPlayerNames() {
+		return Object.values(this.players).map(p => p.name);
+	}
+
 	stop() {
 		logger.info("Stopping server");
 		this.gameLoop.stop();
@@ -54,7 +61,7 @@ class Server {
 	// === PRIVATE METHODS ===
 
 	_setupWebSocket() {
-		this.wss = new WebSocket.Server({ port: process.env.PORT || config.port });
+		this.wss = new WebSocket.Server({ port: process.env.PORT || this.config.port });
 
 		this.wss.on("error", (err) => {
 			logger.error("WebSocket server error", { error: err.message });
@@ -68,10 +75,10 @@ class Server {
 	}
 
 	_createWorkers() {
-		this.rootWorker = new RootWorker(sim, config);
+		this.rootWorker = new RootWorker(this.sim, this.config);
 		this.rootWorker.start();
 
-		this.gameLoop = new GameLoop(sim, config);
+		this.gameLoop = new GameLoop(this.sim, this.config);
 		this.gameLoop.start();
 	}
 
@@ -83,7 +90,7 @@ class Server {
 
 		const worker = new ClientWorker(ws, id, clientIp, {
 			players: this.players,
-			sim
+			sim: this.sim
 		});
 
 		this.clientWorkers[id] = worker;
@@ -100,4 +107,4 @@ class Server {
 	}
 }
 
-global.server = new Server();
+module.exports = { Server };
