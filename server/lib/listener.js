@@ -79,7 +79,7 @@ class Listener extends EventEmitter {
                 return;
             }
             this.alive = false;
-            this.ws.ping();
+            if (this.isConnected()) this.ws.ping();
         }, 30000);
     }
 

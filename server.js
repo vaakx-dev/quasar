@@ -1,162 +1,103 @@
-const { performance } = require("perf_hooks");
 const config = require("./config.json");
 const WebSocket = require("ws");
-const { logger } = require("./lib/logger");
-const { ClientWorker } = require("./workers/client-worker");
-const { RootWorker } = require("./workers/root-worker");
+const { logger } = require("./server/lib/logger");
+const { bus } = require("./server/lib/bus");
+const { ClientWorker } = require("./server/workers/client-worker");
+const { RootWorker } = require("./server/workers/root-worker");
+const { GameLoop } = require("./server/workers/game-loop");
 
-require("./fix");
-require("./istrolid.js");
+require("./game");
 
 global.sim = new Sim();
 sim.serverType = "sandbox";
 sim.start();
 
-const DESIRED_TPS = 16;
-const TICK_LENGTH = 1000 / DESIRED_TPS;
-const INFO_INTERVAL = 15000;
+class Server {
+	constructor() {
+		this.players = {};
+		this.clientWorkers = {};
+		this.wss = null;
+		this.rootWorker = null;
+		this.gameLoop = null;
 
-global.Server = function () {
-	// Shared state
-	const players = {};
-	const clientWorkers = {}; // id → ClientWorker instance
+		this._setupWebSocket();
+		this._setupBusListeners();
+		this._createWorkers();
+	}
 
-	// Create WebSocket.Server
-	const wss = new WebSocket.Server({ port: process.env.PORT || config.port });
+	// === PUBLIC API ===
 
-	// WebSocket server error handler
-	wss.on("error", (err) => {
-		logger.error("WebSocket server error", { error: err.message });
-	});
+	send(player, data) {
+		const packet = sim.zJson.dumpDv(data);
+		const client = player.ws;
+		if (client && client.readyState === WebSocket.OPEN) {
+			client.send(packet);
+		}
+	}
 
-	// Handle client connections
-	wss.on("connection", (ws, req) => {
+	sendToRoot(data) {
+		bus.emit('root:send', data);
+	}
+
+	say(msg) {
+		this.rootWorker.say(msg);
+	}
+
+	stop() {
+		logger.info("Stopping server");
+		this.gameLoop.stop();
+		Object.values(this.clientWorkers).forEach(w => w.listener.close());
+		this.wss.close();
+		this.rootWorker.stop();
+	}
+
+	// === PRIVATE METHODS ===
+
+	_setupWebSocket() {
+		this.wss = new WebSocket.Server({ port: process.env.PORT || config.port });
+
+		this.wss.on("error", (err) => {
+			logger.error("WebSocket server error", { error: err.message });
+		});
+
+		this.wss.on("connection", (ws, req) => this._onConnection(ws, req));
+	}
+
+	_setupBusListeners() {
+		bus.on('clients:broadcast', (packet) => this._broadcast(packet));
+	}
+
+	_createWorkers() {
+		this.rootWorker = new RootWorker(sim, config);
+		this.rootWorker.start();
+
+		this.gameLoop = new GameLoop(sim, config);
+		this.gameLoop.start();
+	}
+
+	_onConnection(ws, req) {
 		const rawIp = req.socket.remoteAddress;
 		const clientIp = rawIp?.replace(/^::ffff:/, "") || rawIp;
 		const id = req.headers["sec-websocket-key"];
 		logger.info("Client connected", { ip: clientIp, id });
 
-		// Create ClientWorker for this connection
 		const worker = new ClientWorker(ws, id, clientIp, {
-			players,
+			players: this.players,
 			sim
 		});
 
-		clientWorkers[id] = worker;
+		this.clientWorkers[id] = worker;
 
-		// Cleanup on close
-		worker.listener.on("close", () => {
-			delete clientWorkers[id];
+		worker.listener.on("close", () => delete this.clientWorkers[id]);
+	}
+
+	_broadcast(packet) {
+		this.wss.clients.forEach((client) => {
+			if (client.readyState === WebSocket.OPEN) {
+				client.send(packet);
+			}
 		});
-	});
-
-	// Create RootWorker (single instance)
-	const rootWorker = new RootWorker(sim, config);
-	rootWorker.start();
-
-	// Public API (backwards compatibility)
-	this.send = (player, data) => {
-		let packet = sim.zJson.dumpDv(data);
-		let client = player.ws;
-		if (client && client.readyState === WebSocket.OPEN) {
-			client.send(packet);
-		}
-	};
-
-	this.sendToRoot = (data) => {
-		rootWorker.send(data);
-	};
-
-	this.stop = () => {
-		logger.info("Stopping server");
-
-		// Stop game loop
-		if (timeout) {
-			clearTimeout(timeout);
-			timeout = null;
-		}
-
-		// Close all client workers
-		Object.values(clientWorkers).forEach(w => w.listener.close());
-
-		// Close WebSocket server
-		wss.close();
-
-		// Stop root worker
-		rootWorker.stop();
-	};
-
-	this.say = (msg) => {
-		rootWorker.say(msg);
-	};
-
-	// Game loop
-	let lastInfoTime = performance.now();
-	let lastTickTime = performance.now();
-	let accumulator = 0;
-	let timeout = null;
-
-	const tick = () => {
-		try {
-			const now = performance.now();
-			let delta = now - lastTickTime;
-			if (delta > 1000) delta = 1000; // Clamp to prevent huge catch-up spikes
-
-			accumulator += delta;
-			lastTickTime = now;
-
-			// Run all queued simulation ticks
-			while (accumulator >= TICK_LENGTH) {
-				if (!sim.paused) {
-					sim.simulate();
-				} else {
-					sim.startingSim();
-				}
-
-				const packet = sim.send();
-
-				// Broadcast to all connected clients
-				wss.clients.forEach((client) => {
-					if (client.readyState === WebSocket.OPEN) {
-						client.send(packet);
-					}
-				});
-
-				accumulator -= TICK_LENGTH;
-			}
-
-			if (now - lastInfoTime > INFO_INTERVAL) {
-				const info = {
-					name: config.name,
-					address: "ws://" + config.addr + ":" + config.port,
-					observers: sim.players.filter((p) => p.connected && !p.ai).length,
-					players: sim.players
-						.filter((p) => p.connected && !p.ai)
-						.map((p) => {
-							return {
-								name: p.name,
-								side: p.side,
-								ai: false,
-							};
-						}),
-					type: sim.serverType,
-					version: 0,
-					state: sim.state,
-				};
-				rootWorker.sendInfo(info);
-				lastInfoTime = now;
-			}
-
-			const delay = Math.min(50, Math.max(0, TICK_LENGTH - accumulator));
-			timeout = setTimeout(tick, Math.round(delay));
-		} catch (e) {
-			logger.error("Critical error in game tick", { error: e.message, stack: e.stack });
-			// Restart tick loop to prevent complete server hang
-			timeout = setTimeout(tick, TICK_LENGTH);
-		}
-	};
-
-	tick();
-};
+	}
+}
 
 global.server = new Server();

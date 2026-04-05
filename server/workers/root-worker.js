@@ -18,6 +18,9 @@ class RootWorker {
 
 		// Listen for validation requests from ClientWorker
 		bus.on('player:validate', (request) => this._handleValidationRequest(request));
+
+		// Generic send - any component can emit data to root
+		bus.on('root:send', (data) => this.send(data));
 	}
 
 	// === PUBLIC API ===
@@ -39,10 +42,6 @@ class RootWorker {
 			return;
 		}
 		this.listener.send(JSON.stringify(data));
-	}
-
-	sendInfo(info) {
-		this.send(["setServer", info]);
 	}
 
 	say(msg) {
@@ -97,9 +96,6 @@ class RootWorker {
 
 		// Register with root server
 		this.send(["registerBot"]);
-
-		// Send initial info
-		this._sendInitialInfo();
 	}
 
 	_onClose() {
@@ -164,27 +160,6 @@ class RootWorker {
 	_onMessage(data) {
 		const messageData = data.data;
 		logger.info(`[${messageData.channel}] ${messageData.name}: ${messageData.text}`);
-	}
-
-	_sendInitialInfo() {
-		const info = {
-			name: this.config.name,
-			address: "ws://" + this.config.addr + ":" + this.config.port,
-			observers: this.sim.players.filter((p) => p.connected && !p.ai).length,
-			players: this.sim.players
-				.filter((p) => p.connected && !p.ai)
-				.map((p) => {
-					return {
-						name: p.name,
-						side: p.side,
-						ai: false,
-					};
-				}),
-			type: this.sim.serverType,
-			version: 0,
-			state: this.sim.state,
-		};
-		this.sendInfo(info);
 	}
 }
 

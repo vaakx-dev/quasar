@@ -1962,7 +1962,7 @@
 					return false;
 				}
 				if (this.noOverkill) {
-					// no overkill makes force target work
+					// Force target (f lock) overrides overkill logic
 					if (this.unit.target) {
 						if (this.unit.target.id === other.id) {
 							return true;
@@ -1970,13 +1970,12 @@
 							return false;
 						}
 					}
-					if (other.maxHP * 2 < this.damage) {
-						return false;
-					}
-					if (
-						this.energyDamage &&
-						other.storeEnergy * 2 < this.energyDamage
-					) {
+
+					// Don't shoot if either HP or energy would overkill (check current values)
+					var hpOverkill = other.hp * 2 < this.damage;
+					var energyOverkill = this.energyDamage && other.energy * 2 < this.energyDamage;
+
+					if (hpOverkill || energyOverkill) {
 						return false;
 					}
 				}
