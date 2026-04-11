@@ -1,12 +1,33 @@
+/**
+ * Fixed-timestep game loop with accumulator for consistent tick rate.
+ * Broadcasts state to clients and server info to root.
+ * @module server/workers/game-loop
+ */
+
 const { performance } = require("perf_hooks");
 const { bus } = require('../lib/bus');
 const { logger } = require('../lib/logger');
 
+/** @constant {number} Target ticks per second */
 const DESIRED_TPS = 16;
+/** @constant {number} Milliseconds per tick */
 const TICK_LENGTH = 1000 / DESIRED_TPS;
+/** @constant {number} Server info broadcast interval in ms */
 const INFO_INTERVAL = 15000;
 
+/**
+ * Runs simulation at fixed 16 TPS, broadcasts state to clients.
+ * @fires bus#clients:broadcast - Game state packet each tick
+ * @fires bus#root:send - Server info every 15s
+ */
 class GameLoop {
+	/**
+	 * @param {Object} sim - Game simulation instance
+	 * @param {Object} config - Server config
+	 * @param {string} config.name - Server name
+	 * @param {string} config.addr - Server address
+	 * @param {number} config.port - Server port
+	 */
 	constructor(sim, config) {
 		this.sim = sim;
 		this.config = config;
@@ -20,11 +41,13 @@ class GameLoop {
 
 	// === PUBLIC API ===
 
+	/** Start the game loop. */
 	start() {
 		this.running = true;
 		this._tick();
 	}
 
+	/** Stop the game loop. */
 	stop() {
 		this.running = false;
 		if (this.timeout) {
@@ -35,6 +58,7 @@ class GameLoop {
 
 	// === PRIVATE METHODS ===
 
+	/** @private Main loop - accumulates delta, runs fixed-step ticks. */
 	_tick() {
 		if (!this.running) return;
 
@@ -64,17 +88,16 @@ class GameLoop {
 		}
 	}
 
+	/** @private Run one simulation step, broadcast state to clients. */
 	_onTick() {
-		if (!this.sim.paused) {
-			this.sim.simulate();
-		} else {
-			this.sim.startingSim();
-		}
+		if (!this.sim.paused) this.sim.simulate();
+		else this.sim.startingSim();
 
 		const packet = this.sim.send();
 		bus.emit('clients:broadcast', packet);
 	}
 
+	/** @private Send server info to root for lobby display. */
 	_sendInfo() {
 		const info = {
 			name: this.config.name,

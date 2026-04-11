@@ -1,13 +1,21 @@
-const { Listener } = require('../lib/listener');
-const { bus } = require('../lib/bus');
-const { logger } = require('../lib/logger');
+/**
+ * Per-client connection handler.
+ * Manages player lifecycle, command routing, rate limiting, and authentication.
+ * @module server/workers/client-worker
+ */
 
-// Rate limiting config
-const RATE_LIMIT_WINDOW = 1000; // 1 second
-const RATE_LIMIT_MAX = 60; // max messages per window
+const { Listener } = require("../lib/listener");
+const { bus } = require("../lib/bus");
+const { logger } = require("../lib/logger");
+
+/** @constant {number} Rate limit window in ms */
+const RATE_LIMIT_WINDOW = 1000;
+/** @constant {number} Max messages per rate limit window */
+const RATE_LIMIT_MAX = 60;
+/** @constant {number} Auth timeout in ms */
 const VALIDATION_TIMEOUT = 10000;
 
-// Use Set for O(1) lookup
+/** @constant {Set<string>} Allowed game commands (O(1) lookup) */
 const cmds = new Set([
 	"mouseMove",
 	"playerSelected",
@@ -26,7 +34,19 @@ const cmds = new Set([
 	"surrender",
 ]);
 
+/**
+ * Handles a single client WebSocket connection.
+ * Routes commands to sim, validates players via bus, enforces rate limits.
+ */
 class ClientWorker {
+	/**
+	 * @param {WebSocket} ws - Client WebSocket connection
+	 * @param {string} id - Unique connection ID
+	 * @param {string} clientIp - Client IP address
+	 * @param {Object} context - Shared context
+	 * @param {Object} context.players - Active players map
+	 * @param {Object} context.sim - Game simulation instance
+	 */
 	constructor(ws, id, clientIp, context) {
 		this.id = id;
 		this.clientIp = clientIp;
@@ -38,7 +58,7 @@ class ClientWorker {
 		this.listener = new Listener({
 			ws,
 			validCommands: new Set([...cmds, "playerJoin", "gameKey"]),
-			messageParser: (msg) => this._parseMessage(msg)
+			messageParser: (msg) => this._parseMessage(msg),
 		});
 
 		// Attach command handlers
@@ -47,7 +67,7 @@ class ClientWorker {
 		this.listener.on("gameKey", (data) => this._onGameKey(data));
 
 		// Generic handler for allowed commands
-		cmds.forEach(cmd => this.listener.on(cmd, (data) => this._onCommand(cmd, data)));
+		cmds.forEach((cmd) => this.listener.on(cmd, (data) => this._onCommand(cmd, data)));
 
 		this.listener.on("close", ({ code }) => this._onClose(code));
 		this.listener.on("error", (err) => this._onError(err));
@@ -55,10 +75,14 @@ class ClientWorker {
 
 	// === PRIVATE METHODS ===
 
+	/** @private Parse binary message, enforce rate limit, return {cmd, args}. */
 	_parseMessage(msg) {
 		// Rate limiting
 		if (!this._checkRateLimit()) {
-			logger.warn("Rate limit exceeded", { id: this.id, ip: this.clientIp });
+			logger.warn("Rate limit exceeded", {
+				id: this.id,
+				ip: this.clientIp,
+			});
 			throw new Error("Rate limited");
 		}
 
@@ -74,6 +98,7 @@ class ClientWorker {
 		return { cmd, args };
 	}
 
+	/** @private Create player in sim, store reference. */
 	_onPlayerJoin({ args }) {
 		this.player = this.context.sim.playerJoin("playerJoin", ...args);
 		this.player.ws = this.listener.ws;
@@ -82,20 +107,24 @@ class ClientWorker {
 		//logger.info("Player joined", { id: this.id, name: this.player.name });
 	}
 
+	/** @private Request auth validation from RootWorker via bus. */
 	_onGameKey({ args }) {
 		if (!this.player) return;
 
 		let gameKey = args[1];
 
-		logger.info("Validation requested", { name: this.player.name, id: this.id });
+		logger.info("Validation requested", {
+			name: this.player.name,
+			id: this.id,
+		});
 
 		// Listen once for validation response (scoped to player name)
 		bus.once(`player:validation:${this.player.name}`, (result) => this._onValidation(result));
 
 		// Request validation from RootWorker
-		bus.emit('player:validate', {
+		bus.emit("player:validate", {
 			name: this.player.name,
-			gameKey: gameKey
+			gameKey: gameKey,
 		});
 
 		// Timeout fallback
@@ -104,43 +133,37 @@ class ClientWorker {
 				name: this.player?.name,
 				id: this.id,
 				validated: this.validated,
-				connected: this.player?.connected
+				connected: this.player?.connected,
 			});
-			if (this.player && !this.validated) {
-				this._rejectPlayer("Authentication timeout");
-			}
+			if (this.player && !this.validated) this._rejectPlayer("Authentication timeout");
 		}, VALIDATION_TIMEOUT);
 	}
 
+	/** @private Handle validation result from RootWorker. */
 	_onValidation(result) {
 		logger.info("Validation response received", {
 			name: this.player?.name,
 			id: this.id,
 			valid: result.valid,
 			hasPlayer: !!this.player,
-			connected: this.player?.connected
+			connected: this.player?.connected,
 		});
 
 		// Ignore if player was already rejected (e.g., by timeout)
-		if (!this.player || !this.player.connected) {
-			logger.warn("Ignoring validation - player gone", { id: this.id });
-			return;
-		}
-
-		if (!result.valid) {
-			this._rejectPlayer(result.reason || "Invalid credentials");
-			return;
-		}
+		if (!this.player || !this.player.connected) return logger.warn(`Ignoring validation - player gone: ${this.id}`);
+		if (!result.valid) return this._rejectPlayer(result.reason || "Invalid credentials");
 
 		this.validated = true;
 		logger.info("Player validated", { name: this.player.name });
 	}
 
+	/** @private Forward game command to sim. */
 	_onCommand(cmd, { args }) {
 		if (!this.player) return;
 		this.context.sim[cmd].apply(this.context.sim, [this.player, ...args]);
 	}
 
+	/** @private Sliding window rate limiter. Returns false if over limit. */
 	_checkRateLimit() {
 		const now = Date.now();
 		if (!this.rateLimiter) {
@@ -162,14 +185,14 @@ class ClientWorker {
 		return true;
 	}
 
+	/** @private Send error to client and disconnect. */
 	_rejectPlayer(reason) {
-		if (this.player && this.player.ws && this.player.ws.readyState === 1) { // WebSocket.OPEN
+		if (this.player && this.player.ws && this.player.ws.readyState === 1) {
+			// WebSocket.OPEN
 			let errorPacket = this.context.sim.zJson.dumpDv(["error", reason]);
 			this.player.ws.send(errorPacket, () => {
 				setTimeout(() => {
-					if (this.player.ws.readyState === 1) {
-						this.player.ws.close(1008, reason);
-					}
+					if (this.player.ws.readyState === 1) this.player.ws.close(1008, reason);
 				}, 100);
 			});
 		}
@@ -182,6 +205,7 @@ class ClientWorker {
 		logger.info("Player rejected", { id: this.id, reason });
 	}
 
+	/** @private Cleanup player on disconnect. */
 	_onClose(code) {
 		logger.info("Client disconnected", { id: this.id, code });
 
@@ -192,8 +216,12 @@ class ClientWorker {
 		}
 	}
 
+	/** @private Log WebSocket errors. */
 	_onError(err) {
-		logger.error("Client WebSocket error", { id: this.id, error: err.message });
+		logger.error("Client WebSocket error", {
+			id: this.id,
+			error: err.message,
+		});
 	}
 }
 
