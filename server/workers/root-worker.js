@@ -191,10 +191,10 @@ class RootWorker {
 		logger.info("Player rejected by root", { name });
 	}
 
-	/** @private Log chat messages from root. */
+	/** @private Emit chat messages to bus for CommandWorker. */
 	_onMessage(data) {
-		const messageData = data.data;
-		logger.info(`[${messageData.channel}] ${messageData.name}: ${messageData.text}`);
+		const message = data.data;
+		bus.emit("root:message", message);
 	}
 }
 

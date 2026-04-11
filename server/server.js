@@ -9,6 +9,7 @@ const { bus } = require("./lib/bus");
 const { ClientWorker } = require("./workers/client-worker");
 const { RootWorker } = require("./workers/root-worker");
 const { GameLoop } = require("./workers/game-loop");
+const { CommandWorker } = require("./workers/command-worker");
 
 /**
  * Orchestrates WebSocket server, client workers, root connection, and game loop.
@@ -31,6 +32,7 @@ class Server {
 		this.wss = null;
 		this.rootWorker = null;
 		this.gameLoop = null;
+		this.commandWorker = null;
 		this.startTime = Date.now();
 
 		// Bind handlers so we can remove them later
@@ -98,6 +100,7 @@ class Server {
 		this._removeBusListeners();
 
 		this.gameLoop.stop();
+		this.commandWorker.stop();
 		Object.values(this.clientWorkers).forEach(w => w.listener.close());
 		this.wss.close();
 		this.rootWorker.stop();
@@ -126,10 +129,13 @@ class Server {
 		bus.off('clients:broadcast', this._broadcastHandler);
 	}
 
-	/** @private Create and start RootWorker and GameLoop. */
+	/** @private Create and start workers. */
 	_createWorkers() {
 		this.rootWorker = new RootWorker(this.sim, this.config);
 		this.rootWorker.start();
+
+		this.commandWorker = new CommandWorker(this.sim);
+		this.commandWorker.start();
 
 		this.gameLoop = new GameLoop(this.sim, this.config);
 		this.gameLoop.start();
