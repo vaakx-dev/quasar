@@ -7,6 +7,7 @@
 const { bus } = require("../lib/bus");
 const { logger } = require("../lib/logger");
 const { getCommand, getAllCommands } = require("../commands");
+const { canExecuteCommand } = require("../lib/permissions");
 
 /**
  * Routes chat messages to command handlers.
@@ -20,6 +21,7 @@ class CommandWorker {
 	 */
 	constructor(sim) {
 		this.sim = sim;
+		this.permissionsWorker = null;
 
 		this._messageHandler = (message) => this._onMessage(message);
 	}
@@ -38,6 +40,11 @@ class CommandWorker {
 		logger.info("CommandWorker stopped");
 	}
 
+	/** Set permissions worker reference. @param {PermissionsWorker} permissionsWorker */
+	setPermissionsWorker(permissionsWorker) {
+		this.permissionsWorker = permissionsWorker;
+	}
+
 	// === PRIVATE METHODS ===
 
 	/**
@@ -51,19 +58,22 @@ class CommandWorker {
 	_onMessage(message) {
 		if (!message.text) return;
 
-		// Check each command for matching prefix
+		const parts = message.text.trim().split(/\s+/);
+		if (!parts.length) return;
+
+		const firstWord = parts[0];
+		const args = parts.slice(1);
+
+		// Find command by checking each prefix against first word
 		for (const [name, command] of getAllCommands()) {
 			const prefix = command.prefix || "!";
-			const fullPrefix = prefix + name;
-
-			if (!message.text.startsWith(fullPrefix)) continue;
-
-			// Extract args (text after command name)
-			const argsText = message.text.slice(fullPrefix.length).trim();
-			const args = argsText ? argsText.split(/\s+/) : [];
-
-			this._executeCommand(command, args, message);
-			return;
+			if (firstWord.startsWith(prefix)) {
+				const commandName = firstWord.slice(prefix.length);
+				if (commandName === name) {
+					this._executeCommand(command, args, message);
+					return;
+				}
+			}
 		}
 	}
 
@@ -77,10 +87,31 @@ class CommandWorker {
 	_executeCommand(command, args, message) {
 		const player = this.sim.players.find((p) => p.name === message.name);
 
+		// Permission check
+		if (this.permissionsWorker) {
+			const roles = this.permissionsWorker.getRoles();
+			const bans = this.permissionsWorker.getBans();
+			if (!canExecuteCommand(roles, bans, message.name, command, player)) {
+				bus.emit("root:send", [
+					"message",
+					{
+						text: "You don't have permission to use this command",
+						channel: message.channel,
+						color: "FF0000",
+						name: "Server",
+						server: true,
+					},
+				]);
+				logger.warn("Permission denied", { cmd: command.name, player: message.name });
+				return;
+			}
+		}
+
 		const context = {
 			sim: this.sim,
 			player,
 			commands: getAllCommands(),
+			permissions: this.permissionsWorker,
 			send: (data) => bus.emit("root:send", data),
 			say: (msg) => bus.emit("root:send", [
 				"message",
@@ -96,7 +127,7 @@ class CommandWorker {
 
 		try {
 			command.execute(context, args, message);
-			logger.info("Command executed", { cmd: command.name, by: player.name });
+			logger.info("Command executed", { cmd: command.name, by: player?.name });
 		} catch (err) {
 			logger.error("Command failed", { cmd: command.name, error: err.message });
 		}

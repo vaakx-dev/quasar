@@ -9,6 +9,7 @@ module.exports = {
 	name: "mode",
 	prefix: ".",
 	description: "Change game mode (1v1, 2v2, 3v3, sandbox, survival)",
+	hostOverride: true, // Host can always use this command
 
 	execute({ sim, player, say }, args) {
 		if (sim.state === "running") return say("Can't change mode while game is running");

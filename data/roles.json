@@ -1,0 +1,21 @@
+{
+    "version": 1,
+    "roles": [
+        {
+            "name": "owner",
+            "members": ["vax"]
+        },
+        {
+            "name": "admin",
+            "members": []
+        },
+        {
+            "name": "mod",
+            "members": []
+        },
+        {
+            "name": "vip",
+            "members": []
+        }
+    ]
+}

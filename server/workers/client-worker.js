@@ -61,6 +61,9 @@ class ClientWorker {
 			messageParser: (msg) => this._parseMessage(msg),
 		});
 
+		// Bind handlers for bus events
+		this._kickHandler = (data) => this._handleKick(data);
+
 		// Attach command handlers
 		this.listener.on("open", () => this._onOpen());
 		this.listener.on("playerJoin", (data) => this._onPlayerJoin(data));
@@ -71,6 +74,9 @@ class ClientWorker {
 
 		this.listener.on("close", ({ code }) => this._onClose(code));
 		this.listener.on("error", (err) => this._onError(err));
+
+		// Listen for bus events
+		bus.on("permissions:kick", this._kickHandler);
 	}
 
 	// === PRIVATE METHODS ===
@@ -153,8 +159,36 @@ class ClientWorker {
 		if (!this.player || !this.player.connected) return logger.warn(`Ignoring validation - player gone: ${this.id}`);
 		if (!result.valid) return this._rejectPlayer(result.reason || "Invalid credentials");
 
-		this.validated = true;
-		logger.info("Player validated", { name: this.player.name });
+		// Check if player is banned
+		bus.emit('permissions:check', {
+			name: this.player.name,
+			ip: this.clientIp,
+			callback: (checkResult) => this._handleBanCheck(checkResult)
+		});
+	}
+
+	/** @private Handle ban check result. */
+	_handleBanCheck(result) {
+		if (!this.player || !this.player.connected) return;
+
+		if (result.banned) {
+			logger.info("Banned player attempted to join", {
+				name: this.player.name,
+				ip: this.clientIp,
+				reason: result.reason
+			});
+			this._rejectPlayer(result.reason);
+		} else {
+			this.validated = true;
+			logger.info("Player validated", { name: this.player.name });
+		}
+	}
+
+	/** @private Handle kick event (e.g., after ban). */
+	_handleKick(data) {
+		if (!this.player) return;
+		if (this.player.name !== data.target) return;
+		this._rejectPlayer(data.reason || "Kicked");
 	}
 
 	/** @private Forward game command to sim. */
@@ -208,6 +242,9 @@ class ClientWorker {
 	/** @private Cleanup player on disconnect. */
 	_onClose(code) {
 		logger.info("Client disconnected", { id: this.id, code });
+
+		// Remove bus listener
+		bus.off("permissions:kick", this._kickHandler);
 
 		// Cleanup player
 		if (this.context.players[this.id]) {
