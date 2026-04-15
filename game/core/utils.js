@@ -210,50 +210,6 @@
 		}
 	};
 
-	stats.draw = function () {
-		if (!control.perf) {
-			return;
-		}
-		stats.drawFrames(stats.fps, 10, 60, 160);
-		stats.drawFrames(stats.sim, 1, 16, 320);
-		return stats.drawFrames(stats.net, 1024 * 10, 1024, 720);
-	};
-
-	stats.drawFrames = function (frames, div, max, yadj) {
-		var color, j, nFrames, results, sec, sx, sy, x, y;
-		sec = Math.floor(Date.now() / 1000);
-		results = [];
-		for (x = j = 0; j < 31; x = ++j) {
-			sx = -x * 16 + window.innerWidth - 20;
-			sy = window.innerHeight - yadj;
-			nFrames = frames[sec - 30 + x] || 0;
-			color = [255, 255, 255, 100];
-			results.push(
-				(function () {
-					var k, ref, results1;
-					results1 = [];
-					for (
-						y = k = 0, ref = Math.ceil(nFrames / div);
-						0 <= ref ? k < ref : k > ref;
-						y = 0 <= ref ? ++k : --k
-					) {
-						results1.push(
-							baseAtlas.drawSprite(
-								"parts/sel1x1.png",
-								[sx, sy - y * 16],
-								[0.5, 0.5],
-								0,
-								color,
-							),
-						);
-					}
-					return results1;
-				})(),
-			);
-		}
-		return results;
-	};
-
 	window.sha1 = function (msg) {
 		fcc = String.fromCharCode;
 		function rotl(n, s) {

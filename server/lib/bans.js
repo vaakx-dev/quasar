@@ -12,7 +12,7 @@ const BANS_FILE = path.join(process.cwd(), "data", "bans.json");
 
 /**
  * Manages bans data with singleton pattern.
- * Supports banning by player name or IP address.
+ * Supports banning by player name or IP address with reasons.
  */
 class Bans {
 	constructor() {
@@ -24,7 +24,7 @@ class Bans {
 
 	/**
 	 * Get bans data, loading from file if needed.
-	 * @returns {Object} Bans data containing version, names array, and ips array
+	 * @returns {Object} Bans data containing version, names object, and ips object
 	 */
 	get data() {
 		if (!this._data) this._load();
@@ -37,34 +37,31 @@ class Bans {
 	 * @returns {boolean} True if the value is in the bans list
 	 */
 	has(value) {
-		return this.names.includes(value) || this.ips.includes(value);
+		return value in this.names || value in this.ips;
 	}
 
 	/**
 	 * Get banned player names.
-	 * @returns {Array<string>} Banned names array
+	 * @returns {Object} Banned names object with reasons
 	 */
 	get names() { return this.data.names; }
 
 	/**
 	 * Get banned IP addresses.
-	 * @returns {Array<string>} Banned IPs array
+	 * @returns {Object} Banned IPs object with reasons
 	 */
 	get ips() { return this.data.ips; }
 
 	/**
 	 * Add a ban entry.
 	 * @param {string} value - Player name or IP address to ban
+	 * @param {string} reason - Ban reason (default: "Banned")
 	 * @returns {boolean} True if added, false if already banned
 	 */
-	add(value) {
-		if (IP_REGEX.test(value)) {
-			if (this.ips.includes(value)) return false;
-			this.ips.push(value);
-		} else {
-			if (this.names.includes(value)) return false;
-			this.names.push(value);
-		}
+	add(value, reason = "Banned") {
+		const target = IP_REGEX.test(value) ? this.ips : this.names;
+		if (value in target) return false;
+		target[value] = { reason };
 		this._save();
 		return true;
 	}
@@ -76,14 +73,12 @@ class Bans {
 	 */
 	remove(value) {
 		let removed = false;
-		const nameIndex = this.names.indexOf(value);
-		if (nameIndex !== -1) {
-			this.names.splice(nameIndex, 1);
+		if (value in this.names) {
+			delete this.names[value];
 			removed = true;
 		}
-		const ipIndex = this.ips.indexOf(value);
-		if (ipIndex !== -1) {
-			this.ips.splice(ipIndex, 1);
+		if (value in this.ips) {
+			delete this.ips[value];
 			removed = true;
 		}
 		if (removed) this._save();
@@ -96,8 +91,8 @@ class Bans {
 	 * @returns {string|undefined} Ban reason message, or undefined if not banned
 	 */
 	check(value) {
-		if (this.names.includes(value)) return "Name is banned";
-		if (this.ips.includes(value)) return "IP is banned";
+		if (value in this.names) return this.names[value].reason;
+		if (value in this.ips) return this.ips[value].reason;
 		return undefined;
 	}
 
@@ -127,7 +122,7 @@ class Bans {
 	 * @private
 	 */
 	_createDefault() {
-		this._data = { version: 1, names: [], ips: [] };
+		this._data = { version: 2, names: {}, ips: {} };
 		this._save();
 	}
 

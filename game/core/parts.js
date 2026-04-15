@@ -1794,21 +1794,6 @@
 					return results;
 				}
 			}
-
-			draw() {
-				var r;
-				super.draw();
-				if (this.working) {
-					r = (this.range + 40) / 255;
-					return baseAtlas.drawSprite(
-						"img/point02.png",
-						this.unit.pos,
-						[r, r],
-						0,
-						[255, 255, 255, 10],
-					);
-				}
-			}
 		}
 
 		EnergyTransfer.prototype.name = "Energy Transfer";
@@ -1878,27 +1863,6 @@
 					}
 				}
 				return results;
-			}
-
-			draw() {
-				var a, r;
-				super.draw();
-				if (this.working) {
-					a = 100;
-				} else {
-					a = 25;
-				}
-				r = (this.range + 40) / 255;
-				return baseAtlas.drawSprite(
-					"img/point02.png",
-					[
-						this.worldPos[0] + Math.sin(this.unit.rot) * 100,
-						this.worldPos[1] - Math.cos(this.unit.rot) * 100,
-					],
-					[r, r],
-					0,
-					[0, 0, 0, a],
-				);
 			}
 		}
 
@@ -2597,18 +2561,6 @@
 				}
 				return (this.working = this.unit.jump >= this.unit.minJump);
 			}
-
-			draw() {
-				super.draw();
-				if (this.working) {
-					return baseAtlas.drawSprite(
-						"parts/engineJumpPip.png",
-						this.worldPos,
-						[1, 1],
-						this.unit.rot,
-					);
-				}
-			}
 		}
 
 		JumpEngine.prototype.name = "Jump Engine";
@@ -2913,21 +2865,6 @@
 
 	parts.RingTurret = function () {
 		class RingTurret extends Turret {
-			draw() {
-				if (this.working) {
-					this.spin += 0.001 * this.damage;
-					this.image = "turRing.png";
-				} else {
-					this.spin += 0.0001 * this.damage;
-					this.image = "turRingReload.png";
-				}
-				return baseAtlas.drawSprite(
-					"parts/" + this.image,
-					this.worldPos,
-					[1, 1],
-					this.spin,
-				);
-			}
 		}
 
 		RingTurret.prototype.name = "Fusion Ring";
@@ -3154,23 +3091,6 @@
 
 	types.ArtilleryExplosion = function () {
 		class ArtilleryExplosion extends types.AoeExplosion {
-			draw() {
-				var color, fade, s;
-				super.draw();
-				if (this.dead) {
-					return;
-				}
-				fade = this.life / this.maxLife;
-				s = this.radius / 2;
-				color = [255, 255, 255, (1 - Math.pow(fade, 2)) * 180];
-				return baseAtlas.drawSprite(
-					"img/fire02.png",
-					this.pos,
-					[s, s],
-					this.rot,
-					color,
-				);
-			}
 		}
 
 		ArtilleryExplosion.prototype.sound = "sounds/weapons/thud3.wav";
@@ -3648,24 +3568,6 @@
 
 	types.FlackExplosion = function () {
 		class FlackExplosion extends types.AoeExplosion {
-			draw() {
-				var color, fade, s;
-				super.draw();
-				super.draw();
-				if (this.dead) {
-					return;
-				}
-				fade = this.life / this.maxLife;
-				s = this.aoe / 80;
-				color = [255, 255, 255, (1 - Math.pow(fade, 2)) * 180];
-				return baseAtlas.drawSprite(
-					"parts/fireFlackExp1.png",
-					this.pos,
-					[s, s],
-					this.rot,
-					color,
-				);
-			}
 		}
 
 		FlackExplosion.prototype.maxLife = 10;
@@ -3735,19 +3637,6 @@
 			constructor() {
 				super();
 				this.hitOnce = {};
-			}
-
-			draw() {
-				if (this.dead) {
-					return;
-				}
-				return baseAtlas.drawSprite(
-					this.image,
-					this.pos,
-					this.size,
-					this.rot + intp.t,
-					this.color,
-				);
 			}
 
 			hitUnit(unit) {
@@ -3826,18 +3715,6 @@
 
 	types.EMPOrb = function () {
 		class EMPOrb extends Bullet {
-			draw() {
-				if (this.dead) {
-					return;
-				}
-				return baseAtlas.drawSprite(
-					this.image,
-					this.pos,
-					this.size,
-					this.rot + intp.t,
-					this.color,
-				);
-			}
 		}
 
 		EMPOrb.prototype.image = "parts/fireEnergyBall.png";
@@ -3915,27 +3792,6 @@
 					intp.particles[exp2.id] = exp2;
 					return (this.split = 1);
 				}
-			}
-
-			draw() {
-				var image;
-				if (this.dead) {
-					return;
-				}
-				if (this.life > this.maxLife / 4 && this.split === 0) {
-					image = "img/fire02.png";
-				} else if (this.life > this.maxLife / 4) {
-					image = "parts/fizzleMineEnergy.png";
-				} else {
-					image = this.image;
-				}
-				return baseAtlas.drawSprite(
-					image,
-					this.pos,
-					this.size,
-					this.rot + intp.t,
-					this.color,
-				);
 			}
 
 			postFire() {
@@ -4039,32 +3895,6 @@
 
 	types.BombExplosion = function () {
 		class BombExplosion extends types.AoeExplosion {
-			draw() {
-				var ex, i, n, results;
-				super.draw();
-				if (this.life === 0) {
-					results = [];
-					for (n = i = 1; i < 15; n = ++i) {
-						ex = new types.Debree();
-						ex.image = `parts/fireFlame${chooseInt(1, 4)}.png`;
-						ex.z = this.z + rand() * 0.01;
-						ex.pos = [0, 0];
-						ex.vel = [0, 0];
-						v2.set(this.pos, ex.pos);
-						v2.scale(v2.random(ex.vel), Math.random() * 6);
-						ex.rot = rand() * Math.PI * 2;
-						ex.vrot = rand();
-						ex.maxLife = 16;
-						ex._pos = v2.create(ex.pos);
-						ex._pos2 = v2.create(ex.pos);
-						ex.rot = ex.rot;
-						ex._rot = ex.rot;
-						ex._rot2 = ex.rot;
-						results.push((intp.particles[ex.id] = ex));
-					}
-					return results;
-				}
-			}
 		}
 
 		BombExplosion.prototype.maxLife = 10;
@@ -4111,26 +3941,6 @@
 						exp.damage = this.damage;
 						return (sim.things[exp.id] = exp);
 					}
-				}
-			}
-
-			draw() {
-				if (!this.trail) {
-					this.trail = new Trail(
-						this.id,
-						this.trailSize,
-						this.trailTime,
-						this.color,
-						this.z,
-					);
-				}
-				this.trail.grow(this.pos);
-				super.draw();
-				this.z = 1;
-				this.trail.z = 1 - 0.0001;
-				if (this.life === 28) {
-					this.image = "parts/bombActive.png";
-					return playSound("sounds/weapons/wizzzz.wav");
 				}
 			}
 		}
@@ -4457,8 +4267,6 @@
 
 		TeslaBolt.prototype.color = [179, 207, 255, 255];
 
-		TeslaBolt.prototype.drawLength = 250;
-
 		return TeslaBolt;
 	}.call(this);
 
@@ -4590,13 +4398,6 @@
 				this.hitOnce = {};
 			}
 
-			draw() {
-				this.color[3] = 128 * (1 - this.radius / this.maxRadius);
-				this.size[0] = this.radius / 100;
-				this.size[1] = this.radius / 100;
-				return super.draw();
-			}
-
 			tick() {
 				super.tick();
 				this.radius += (this.maxRadius - 30) / this.maxLife;
@@ -4722,24 +4523,6 @@
 	}.call(this);
 
 	types.FlameBulletGhost = class FlameBulletGhost extends Bullet {
-		draw() {
-			this.color[0] = Math.max(
-				0,
-				255 - (260 * this.radius) / this.maxRadius,
-			);
-			this.color[1] = Math.max(
-				0,
-				255 - (440 * this.radius) / this.maxRadius,
-			);
-			this.color[2] = Math.max(
-				0,
-				255 - (700 * this.radius) / this.maxRadius,
-			);
-			this.color[3] = 64 * (1.2 - this.radius / this.maxRadius);
-			this.size[0] = this.radius / 100;
-			this.size[1] = this.radius / 100;
-			return super.draw();
-		}
 
 		tick() {
 			super.tick();
@@ -4759,59 +4542,6 @@
 			constructor() {
 				super();
 				this.hitOnce = {};
-			}
-
-			draw() {
-				var ex, ref, s, w;
-				this.createGhost += 1;
-				if (this.life < 2 && this.createGhost % 3 === 0) {
-					if (this.origin) {
-						// if there is origin great, adjust start pos
-						w =
-							(ref = this.origin.weapons) != null
-								? ref[this.turretNum || 0]
-								: void 0;
-						if (w) {
-							// if we found a weapon
-							v2.set(w.worldPos, this.originPos);
-							ex = new types.FlameBulletGhost();
-							ex.main = false;
-							ex.image = `parts/fireFlame${chooseInt(1, 4)}.png`;
-							ex.z = this.z + rand() * 0.01;
-							ex.pos = v2.create(this.originPos);
-							ex.vel = v2.create(this.vel);
-							s = 0.3 + 0.4 * Math.random();
-							ex.size = [s, s];
-							ex.radius = this.radius * 5;
-							ex.maxRadius = this.maxRadius * 5;
-							ex.rot = rand() * Math.PI * 2;
-							ex.vrot = 0;
-							ex.maxLife = this.maxLife;
-							ex._pos = v2.create(ex.pos);
-							ex._pos2 = v2.create(ex.pos);
-							ex.rot = ex.rot;
-							ex._rot = ex.rot;
-							ex._rot2 = ex.rot;
-							intp.particles[ex.id] = ex;
-						}
-					}
-				}
-				this.color[0] = Math.max(
-					0,
-					255 - (260 * this.radius) / this.maxRadius,
-				);
-				this.color[1] = Math.max(
-					0,
-					255 - (440 * this.radius) / this.maxRadius,
-				);
-				this.color[2] = Math.max(
-					0,
-					255 - (700 * this.radius) / this.maxRadius,
-				);
-				this.color[3] = 64 * (1.2 - this.radius / this.maxRadius);
-				this.size[0] = this.radius * 0.1;
-				this.size[1] = this.radius * 0.1;
-				return super.draw();
 			}
 
 			tick() {

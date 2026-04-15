@@ -3,7 +3,7 @@
     "roles": [
         {
             "name": "owner",
-            "members": ["vax"]
+            "members": ["your_name_here"]
         },
         {
             "name": "admin",
@@ -11,10 +11,6 @@
         },
         {
             "name": "mod",
-            "members": []
-        },
-        {
-            "name": "vip",
             "members": []
         }
     ]

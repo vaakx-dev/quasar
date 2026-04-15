@@ -1,5 +1,5 @@
 {
-    "name": "Quasar (Custom)",
+    "name": "Quasar Server",
     "port": 3000,
     "addr": "localhost",
     "root_addr": "ws://198.199.109.223:88"

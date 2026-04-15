@@ -105,76 +105,107 @@ class ClientWorker {
 		return { cmd, args };
 	}
 
-	/** @private Create player in sim, store reference. */
+	/** @private Store join args. Player created after ban check and validation. */
 	_onPlayerJoin({ args }) {
-		this.player = this.context.sim.playerJoin("playerJoin", ...args);
-		this.player.ws = this.listener.ws;
-		this.context.players[this.id] = this.player;
-		this.context.sim.clearNetState();
-		//logger.info("Player joined", { id: this.id, name: this.player.name });
+		// Store args temporarily - player created after validation
+		this.player = { _pendingArgs: args, connected: true, ws: this.listener.ws };
 	}
 
-	/** @private Request auth validation from RootWorker via bus. */
+	/** @private Check bans, then request validation from RootWorker via bus. */
 	_onGameKey({ args }) {
-		if (!this.player) return;
+		if (!this.player || !this.player._pendingArgs) return;
 
-		let gameKey = args[1];
+		// playerJoin signature: (_, pid, name, color, buildBar, aiRules, ai, update)
+		const name = this.player._pendingArgs[1];
+		const gameKey = args[1];
 
-		logger.info("Validation requested", {
-			name: this.player.name,
-			id: this.id,
-		});
+		// First check if banned (local check - fast fail)
+		const banReason = this._checkBan(name, this.clientIp);
+		if (banReason) return this._rejectPlayer(banReason);
+
+		// Then validate with root server
+		this._requestValidation(name, gameKey);
+	}
+
+	/**
+	 * @private Check if name or IP is banned.
+	 * @returns {string|null} Ban reason or null if not banned
+	 */
+	_checkBan(name, ip) {
+		const nameReason = bans.check(name);
+		const ipReason = bans.check(ip);
+
+		if (nameReason || ipReason) {
+			logger.info("Banned player attempted to join", {
+				name,
+				ip,
+				reason: nameReason || ipReason
+			});
+			return nameReason || ipReason;
+		}
+		return null;
+	}
+
+	/**
+	 * @private Request validation from RootWorker via bus.
+	 * Creates player after validation succeeds.
+	 */
+	_requestValidation(name, gameKey) {
+		logger.info("Validation requested", { name, id: this.id });
 
 		// Listen once for validation response (scoped to player name)
-		bus.once(`player:validation:${this.player.name}`, (result) => this._onValidation(result));
+		bus.once(`player:validation:${name}`, (result) => this._onValidation(result));
 
 		// Request validation from RootWorker
-		bus.emit("player:validate", {
-			name: this.player.name,
-			gameKey: gameKey,
-		});
+		bus.emit("player:validate", { name, gameKey });
 
 		// Timeout fallback
 		setTimeout(() => {
 			logger.info("Validation timeout fired", {
-				name: this.player?.name,
+				name: this.player?._pendingArgs?.[1],
 				id: this.id,
 				validated: this.validated,
-				connected: this.player?.connected,
 			});
 			if (this.player && !this.validated) this._rejectPlayer("Authentication timeout");
 		}, VALIDATION_TIMEOUT);
 	}
 
-	/** @private Handle validation result from RootWorker. */
+	/**
+	 * @private Handle validation result from RootWorker.
+	 * Creates player in sim after successful validation.
+	 */
 	_onValidation(result) {
+		// Ignore if player was already rejected (e.g., by timeout)
+		if (!this.player || !this.player._pendingArgs) {
+			return logger.warn(`Ignoring validation - player gone: ${this.id}`);
+		}
+
+		const name = this.player._pendingArgs[1];
+
 		logger.info("Validation response received", {
-			name: this.player?.name,
+			name,
 			id: this.id,
 			valid: result.valid,
-			hasPlayer: !!this.player,
-			connected: this.player?.connected,
 		});
 
-		// Ignore if player was already rejected (e.g., by timeout)
-		if (!this.player || !this.player.connected) return logger.warn(`Ignoring validation - player gone: ${this.id}`);
 		if (!result.valid) return this._rejectPlayer(result.reason || "Invalid credentials");
 
-		// Check if player is banned
-		const nameReason = bans.check(this.player.name);
-		const ipReason = bans.check(this.clientIp);
+		// All checks passed - create player in sim
+		this._createPlayer();
+	}
 
-		if (nameReason || ipReason) {
-			logger.info("Banned player attempted to join", {
-				name: this.player.name,
-				ip: this.clientIp,
-				reason: nameReason || ipReason
-			});
-			this._rejectPlayer(nameReason || ipReason);
-		} else {
-			this.validated = true;
-			logger.info("Player validated", { name: this.player.name });
-		}
+	/**
+	 * @private Create player in sim after validation and ban checks pass.
+	 */
+	_createPlayer() {
+		const args = this.player._pendingArgs;
+		this.player = this.context.sim.playerJoin("playerJoin", ...args);
+		this.player.ws = this.listener.ws;
+		this.context.players[this.id] = this.player;
+		this.context.sim.clearNetState();
+		this.validated = true;
+
+		logger.info("Player joined and validated", { id: this.id, name: this.player.name });
 	}
 
 	/** @private Handle kick event (e.g., after ban). */
@@ -187,6 +218,7 @@ class ClientWorker {
 	/** @private Forward game command to sim. */
 	_onCommand(cmd, { args }) {
 		if (!this.player) return;
+		if (!this.validated) return;
 		this.context.sim[cmd].apply(this.context.sim, [this.player, ...args]);
 	}
 
@@ -212,23 +244,29 @@ class ClientWorker {
 		return true;
 	}
 
-	/** @private Send error to client and disconnect. */
+	/**
+	 * @private Send error to client and disconnect.
+	 * Handles both pending args and created player.
+	 */
 	_rejectPlayer(reason) {
-		if (this.player && this.player.ws && this.player.ws.readyState === 1) {
+		const ws = this.player?.ws;
+		if (ws && ws.readyState === 1) {
 			// WebSocket.OPEN
 			let errorPacket = this.context.sim.zJson.dumpDv(["error", reason]);
-			this.player.ws.send(errorPacket, () => {
+			ws.send(errorPacket, () => {
 				setTimeout(() => {
-					if (this.player.ws.readyState === 1) this.player.ws.close(1008, reason);
+					if (ws.readyState === 1) ws.close(1008, reason);
 				}, 100);
 			});
 		}
 
-		if (this.player) {
-			this.player.connected = false;
+		// Cleanup player if created in sim
+		if (this.context.players[this.id]) {
+			this.context.players[this.id].connected = false;
 			delete this.context.players[this.id];
 		}
 
+		this.player = null;
 		logger.info("Player rejected", { id: this.id, reason });
 	}
 

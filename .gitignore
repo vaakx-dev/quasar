@@ -1,3 +1,6 @@
 node_modules/
 CLAUDE.md
 .vscode/
+config.json
+data/bans.json
+data/roles.json

@@ -62,8 +62,8 @@ module.exports = {
 			return say(`${name} is already banned`);
 		}
 
-		// Add ban and save
-		bans.add(name);
+		// Add ban and save with reason
+		bans.add(name, reason);
 
 		// Kick if online
 		bus.emit('player:kick', { target: name, reason });
@@ -85,11 +85,16 @@ module.exports = {
 
 	_listBans(say) {
 		const parts = [];
-		if (bans.names.length) {
-			parts.push(`Names: ${bans.names.join(", ")}`);
+		const nameEntries = Object.entries(bans.names);
+		const ipEntries = Object.entries(bans.ips);
+
+		if (nameEntries.length) {
+			const formatted = nameEntries.map(([name, data]) => `${name} (${data.reason})`);
+			parts.push(`Names: ${formatted.join(", ")}`);
 		}
-		if (bans.ips.length) {
-			parts.push(`IPs: ${bans.ips.join(", ")}`);
+		if (ipEntries.length) {
+			const formatted = ipEntries.map(([ip, data]) => `${ip} (${data.reason})`);
+			parts.push(`IPs: ${formatted.join(", ")}`);
 		}
 
 		if (!parts.length) return say("No active bans");
