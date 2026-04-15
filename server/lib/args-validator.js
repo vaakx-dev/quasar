@@ -12,9 +12,7 @@
  * @returns {{ valid: boolean, args?: Object, error?: string, usage?: string }}
  */
 function validateArgs(rawArgs, schema, context) {
-	if (!schema?.args || schema.args.length === 0) {
-		return { valid: true, args: {} };
-	}
+	if (!schema?.args || schema.args.length === 0) return { valid: true, args: {} };
 
 	/** @type {Object} */
 	const validatedArgs = {};
@@ -32,23 +30,16 @@ function validateArgs(rawArgs, schema, context) {
 
 		// Handle rest type (captures all remaining args)
 		if (type === 'rest') {
-			if (rawValue !== undefined) {
-				validatedArgs[name] = rawArgs.slice(argIndex);
-			} else if (required) {
-				errors.push(`missing required argument: ${name}`);
-			} else if (defaultValue !== undefined) {
-				validatedArgs[name] = defaultValue;
-			}
+			if (rawValue !== undefined) validatedArgs[name] = rawArgs.slice(argIndex);
+			else if (required) errors.push(`missing required argument: ${name}`);
+			else if (defaultValue !== undefined) validatedArgs[name] = defaultValue;
 			break; // rest consumes all remaining
 		}
 
 		// Skip if no more args and not required
 		if (rawValue === undefined) {
-			if (required) {
-				errors.push(`missing required argument: ${name}`);
-			} else if (defaultValue !== undefined) {
-				validatedArgs[name] = defaultValue;
-			}
+			if (required) errors.push(`missing required argument: ${name}`);
+			else if (defaultValue !== undefined) validatedArgs[name] = defaultValue;
 			continue;
 		}
 
@@ -70,11 +61,9 @@ function validateArgs(rawArgs, schema, context) {
 			}
 			case 'boolean': {
 				const lower = rawValue.toLowerCase();
-				if (lower === 'true' || lower === '1' || lower === 'yes') {
-					parsedValue = true;
-				} else if (lower === 'false' || lower === '0' || lower === 'no') {
-					parsedValue = false;
-				} else {
+				if (['true', '1', 'yes'].includes(lower)) parsedValue = true;
+				else if (['false', '0', 'no'].includes(lower)) parsedValue = false;
+				else {
 					errors.push(`${name} must be true/false, got "${rawValue}"`);
 					valid = false;
 				}
@@ -83,9 +72,7 @@ function validateArgs(rawArgs, schema, context) {
 			case 'enum': {
 				// Resolve enum values (can be array or function)
 				let validEnumValues = enumValues;
-				if (typeof enumValues === 'function') {
-					validEnumValues = enumValues(context);
-				}
+				if (typeof enumValues === 'function') validEnumValues = enumValues(context);
 
 				if (!validEnumValues || !validEnumValues.includes(rawValue)) {
 					const validList = validEnumValues ? validEnumValues.join('|') : '(no valid values defined)';
@@ -101,9 +88,7 @@ function validateArgs(rawArgs, schema, context) {
 				break;
 		}
 
-		if (valid) {
-			validatedArgs[name] = parsedValue;
-		}
+		if (valid) validatedArgs[name] = parsedValue;
 	}
 
 	// Check for extra arguments (unless there's a rest arg)
@@ -129,9 +114,7 @@ function validateArgs(rawArgs, schema, context) {
  * @returns {string} Usage text
  */
 function generateUsage(commandName, schema) {
-	if (!schema?.args || schema.args.length === 0) {
-		return commandName;
-	}
+	if (!schema?.args || schema.args.length === 0) return commandName;
 
 	const parts = [commandName];
 
@@ -139,20 +122,15 @@ function generateUsage(commandName, schema) {
 		const { name, required = true, type, enum: enumValues, description } = arg;
 		let part;
 
-		if (type === 'rest') {
-			part = required ? `<${name}...>` : `[${name}...]`;
-		} else if (type === 'enum' && enumValues) {
+		if (type === 'rest') part = required ? `<${name}...>` : `[${name}...]`;
+		else if (type === 'enum' && enumValues) {
 			// For enum, show the actual values instead of the name
 			let values = enumValues;
-			if (typeof values === 'function') {
-				// Can't resolve dynamic enum without context, show generic
-				values = ['<options>'];
-			}
+			if (typeof values === 'function') values = ['<options>'];
 			const options = values.join('|');
 			part = required ? `<${options}>` : `[${options}]`;
-		} else {
-			part = required ? `<${name}>` : `[${name}]`;
 		}
+		else part = required ? `<${name}>` : `[${name}]`;
 
 		parts.push(part);
 	}

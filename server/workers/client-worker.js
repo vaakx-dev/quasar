@@ -98,9 +98,7 @@ class ClientWorker {
 		const data = this.context.sim.zJson.loadDv(packet);
 
 		// Input validation
-		if (!Array.isArray(data) || typeof data[0] !== "string") {
-			throw new Error("Invalid message format");
-		}
+		if (!Array.isArray(data) || typeof data[0] !== "string") throw new Error("Invalid message format");
 
 		const [cmd, ...args] = data;
 		return { cmd, args };
@@ -108,16 +106,12 @@ class ClientWorker {
 
 	/** @private Create player after validation passes, or store args if pending validation. */
 	_onPlayerJoin({ args }) {
-		if (this.validated) {
-			// Already validated - accept join immediately
-			this.player = this.context.sim.playerJoin("playerJoin", ...args);
-			this.player.ws = this.listener.ws;
-			this.context.players[this.id] = this.player;
-			this.context.sim.clearNetState();
-		} else {
-			// Store args temporarily - player created after validation
-			this.pendingPlayer = args;
-		}
+		if (!this.validated) return this.pendingPlayer = args;
+		// Already validated - accept join immediately
+		this.player = this.context.sim.playerJoin("playerJoin", ...args);
+		this.player.ws = this.listener.ws;
+		this.context.players[this.id] = this.player;
+		this.context.sim.clearNetState();
 	}
 
 	/** @private Check bans, then request validation from RootWorker via bus. */
@@ -144,15 +138,13 @@ class ClientWorker {
 		const nameReason = bans.check(name);
 		const ipReason = bans.check(ip);
 
-		if (nameReason || ipReason) {
-			logger.info("Banned player attempted to join", {
-				name,
-				ip,
-				reason: nameReason || ipReason
-			});
-			return nameReason || ipReason;
-		}
-		return null;
+		if (!nameReason && !ipReason) return null;
+		logger.info("Banned player attempted to join", {
+			name,
+			ip,
+			reason: nameReason || ipReason
+		});
+		return nameReason || ipReason;
 	}
 
 	/**
@@ -185,9 +177,7 @@ class ClientWorker {
 	 */
 	_onValidation(result) {
 		// Ignore if player was already rejected (e.g., by timeout)
-		if (!this.pendingPlayer) {
-			return logger.warn(`Ignoring validation - player gone: ${this.id}`);
-		}
+		if (!this.pendingPlayer) return logger.warn(`Ignoring validation - player gone: ${this.id}`);
 
 		const name = this.pendingPlayer[1];
 
@@ -249,9 +239,7 @@ class ClientWorker {
 		}
 
 		this.rateLimiter.count++;
-		if (this.rateLimiter.count > RATE_LIMIT_MAX) {
-			return false; // Rate limited
-		}
+		if (this.rateLimiter.count > RATE_LIMIT_MAX) return false; // Rate limited
 		return true;
 	}
 

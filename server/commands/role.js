@@ -40,9 +40,7 @@ module.exports = {
 		const { action, player: name, role: roleName } = args;
 
 		// Check if role exists
-		if (roles.level(roleName) === -1) {
-			return say(`Role "${roleName}" does not exist`);
-		}
+		if (roles.level(roleName) === -1) return say(`Role "${roleName}" does not exist`);
 
 		switch (action) {
 			case 'add':
