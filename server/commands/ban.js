@@ -44,16 +44,10 @@ module.exports = {
 	execute({ player, say }, args) {
 		const { action, target, reason } = args;
 
-		if (action === "list") {
-			return this._listBans(say);
-		}
-
-		if (action === "add") {
-			return this._addBan(say, target, reason, player);
-		}
-
-		if (action === "remove") {
-			return this._removeBan(say, target);
+		switch (action) {
+			case 'list': return this._listBans(say);
+			case 'add': return this._addBan(say, target, reason, player);
+			case 'remove': return this._removeBan(say, target);
 		}
 	},
 
@@ -66,22 +60,16 @@ module.exports = {
 
 		// Permission check for name bans
 		if (type === 'name' && senderName && target) {
-			if (senderName === target) {
-				return say("You cannot ban yourself");
-			}
+			if (senderName === target) return say("You cannot ban yourself");
 			const senderRank = roles.rank(senderName);
 			const targetRank = roles.rank(target);
 			// If target has no role, anyone with a role can ban
 			// Otherwise sender must have higher role (lower number)
-			if (targetRank === -1 ? senderRank === -1 : senderRank >= targetRank) {
-				return say(`Cannot ban ${target}: insufficient permissions`);
-			}
+			if (targetRank === -1 ? senderRank === -1 : senderRank >= targetRank) return say(`Cannot ban ${target}: insufficient permissions`);
 		}
 
 		// Check if already banned
-		if (bans.has(target)) {
-			return say(`${target} is already banned`);
-		}
+		if (bans.has(target)) return say(`${target} is already banned`);
 
 		// Add ban and save with reason
 		bans.add(target, reasonStr);
@@ -94,10 +82,7 @@ module.exports = {
 
 	_removeBan(say, target) {
 		if (!target) return say("Usage: .ban remove <name|ip>");
-
-		if (!bans.remove(target)) {
-			return say(`${target} is not banned`);
-		}
+		if (!bans.remove(target)) return say(`${target} is not banned`);
 
 		say(`Unbanned ${target}`);
 	},

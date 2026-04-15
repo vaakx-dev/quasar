@@ -44,9 +44,7 @@ class Roles {
 	 */
 	get(name) {
 		for (const role of this.roles) {
-			if (role.members?.includes(name)) {
-				return role.name;
-			}
+			if (role.members?.includes(name)) return role.name;
 		}
 		return null;
 	}
@@ -98,9 +96,7 @@ class Roles {
 		for (const role of this.roles) {
 			if (role.members?.includes(name)) {
 				const lvl = this.level(role.name);
-				if (lvl !== -1 && (highest === -1 || lvl < highest)) {
-					highest = lvl;
-				}
+				if (lvl !== -1 && (highest === -1 || lvl < highest)) highest = lvl;
 			}
 		}
 		return highest;

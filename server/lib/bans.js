@@ -102,9 +102,7 @@ class Bans {
 	 */
 	_load() {
 		const dataDir = path.dirname(this._path);
-		if (!fs.existsSync(dataDir)) {
-			fs.mkdirSync(dataDir, { recursive: true });
-		}
+		if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 		if (fs.existsSync(this._path)) {
 			try {
@@ -112,9 +110,7 @@ class Bans {
 			} catch (err) {
 				this._createDefault();
 			}
-		} else {
-			this._createDefault();
-		}
+		} else this._createDefault();
 	}
 
 	/**

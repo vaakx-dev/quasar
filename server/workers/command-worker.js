@@ -31,18 +31,15 @@ function canExecuteCommand(name, command, player) {
 	if (command.playerOverride && player && player.side !== "spectators") return true;
 
 	// Check role requirement
-	if (command.requiredRole) {
-		const playerLevel = roles.rank(name);
-		if (playerLevel === -1) return false;
+	if (!command.requiredRole) return true;
+	const playerLevel = roles.rank(name);
+	if (playerLevel === -1) return false;
 
-		const requiredLevel = roles.level(command.requiredRole);
-		if (requiredLevel === -1) return false;
+	const requiredLevel = roles.level(command.requiredRole);
+	if (requiredLevel === -1) return false;
 
-		// Player's level must be >= required level (lower index = higher)
-		return playerLevel <= requiredLevel;
-	}
-
-	return true;
+	// Player's level must be >= required level (lower index = higher)
+	return playerLevel <= requiredLevel;
 }
 
 /**

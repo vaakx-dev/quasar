@@ -53,9 +53,7 @@ class Server {
 	send(player, data) {
 		const packet = this.sim.zJson.dumpDv(data);
 		const client = player.ws;
-		if (client && client.readyState === WebSocket.OPEN) {
-			client.send(packet);
-		}
+		if (client && client.readyState === WebSocket.OPEN) client.send(packet);
 	}
 
 	/**
