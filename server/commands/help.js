@@ -19,7 +19,7 @@ module.exports = {
 	 * @param {Object} message - Original message data
 	 */
 	execute({ commands, say }) {
-		const names = [...commands.values()].map((c) => `${c.prefix || "!"}${c.name}`);
+		const names = [...commands.values()].map((c) => `${c.prefix}${c.name}`);
 		say(`Commands: ${names.join(", ")}`);
 	},
 };

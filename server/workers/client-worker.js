@@ -53,6 +53,7 @@ class ClientWorker {
 		this.clientIp = clientIp;
 		this.context = context; // { players, sim }
 		this.player = null;
+		this.pendingPlayer = null; // Stores join args until validation completes
 		this.validated = false;
 		this.rateLimiter = null; // { count, windowStart }
 
@@ -105,18 +106,26 @@ class ClientWorker {
 		return { cmd, args };
 	}
 
-	/** @private Store join args. Player created after ban check and validation. */
+	/** @private Create player after validation passes, or store args if pending validation. */
 	_onPlayerJoin({ args }) {
-		// Store args temporarily - player created after validation
-		this.player = { _pendingArgs: args, connected: true, ws: this.listener.ws };
+		if (this.validated) {
+			// Already validated - accept join immediately
+			this.player = this.context.sim.playerJoin("playerJoin", ...args);
+			this.player.ws = this.listener.ws;
+			this.context.players[this.id] = this.player;
+			this.context.sim.clearNetState();
+		} else {
+			// Store args temporarily - player created after validation
+			this.pendingPlayer = args;
+		}
 	}
 
 	/** @private Check bans, then request validation from RootWorker via bus. */
 	_onGameKey({ args }) {
-		if (!this.player || !this.player._pendingArgs) return;
+		if (!this.pendingPlayer) return;
 
 		// playerJoin signature: (_, pid, name, color, buildBar, aiRules, ai, update)
-		const name = this.player._pendingArgs[1];
+		const name = this.pendingPlayer[1];
 		const gameKey = args[1];
 
 		// First check if banned (local check - fast fail)
@@ -162,11 +171,11 @@ class ClientWorker {
 		// Timeout fallback
 		setTimeout(() => {
 			logger.info("Validation timeout fired", {
-				name: this.player?._pendingArgs?.[1],
+				name: this.pendingPlayer?.[1],
 				id: this.id,
 				validated: this.validated,
 			});
-			if (this.player && !this.validated) this._rejectPlayer("Authentication timeout");
+			if (this.pendingPlayer && !this.validated) this._rejectPlayer("Authentication timeout");
 		}, VALIDATION_TIMEOUT);
 	}
 
@@ -176,11 +185,11 @@ class ClientWorker {
 	 */
 	_onValidation(result) {
 		// Ignore if player was already rejected (e.g., by timeout)
-		if (!this.player || !this.player._pendingArgs) {
+		if (!this.pendingPlayer) {
 			return logger.warn(`Ignoring validation - player gone: ${this.id}`);
 		}
 
-		const name = this.player._pendingArgs[1];
+		const name = this.pendingPlayer[1];
 
 		logger.info("Validation response received", {
 			name,
@@ -198,20 +207,22 @@ class ClientWorker {
 	 * @private Create player in sim after validation and ban checks pass.
 	 */
 	_createPlayer() {
-		const args = this.player._pendingArgs;
+		const args = this.pendingPlayer;
 		this.player = this.context.sim.playerJoin("playerJoin", ...args);
 		this.player.ws = this.listener.ws;
 		this.context.players[this.id] = this.player;
 		this.context.sim.clearNetState();
 		this.validated = true;
+		this.pendingPlayer = null; // Clear pending args
 
 		logger.info("Player joined and validated", { id: this.id, name: this.player.name });
 	}
 
 	/** @private Handle kick event (e.g., after ban). */
 	_handleKick(data) {
-		if (!this.player) return;
-		if (this.player.name !== data.target) return;
+		const name = this.player?.name || this.pendingPlayer?.[1];
+		if (!name) return;
+		if (name !== data.target) return;
 		this._rejectPlayer(data.reason || "Kicked");
 	}
 
@@ -249,7 +260,7 @@ class ClientWorker {
 	 * Handles both pending args and created player.
 	 */
 	_rejectPlayer(reason) {
-		const ws = this.player?.ws;
+		const ws = this.player?.ws || this.listener?.ws;
 		if (ws && ws.readyState === 1) {
 			// WebSocket.OPEN
 			let errorPacket = this.context.sim.zJson.dumpDv(["error", reason]);
@@ -267,6 +278,7 @@ class ClientWorker {
 		}
 
 		this.player = null;
+		this.pendingPlayer = null;
 		logger.info("Player rejected", { id: this.id, reason });
 	}
 
@@ -282,6 +294,9 @@ class ClientWorker {
 			this.context.players[this.id].connected = false;
 			delete this.context.players[this.id];
 		}
+
+		this.player = null;
+		this.pendingPlayer = null;
 	}
 
 	/** @private Log WebSocket errors. */

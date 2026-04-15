@@ -15,72 +15,91 @@ module.exports = {
 	description: "Manage bans (add, list, remove)",
 	requiredRole: "mod",
 
-	execute({ sim, player, say }, args) {
-		if (!args.length) return say("Usage: .ban <add|list|remove> [name|ip] [reason]");
+	schema: {
+		args: [
+			{
+				name: 'action',
+				type: 'enum',
+				required: true,
+				enum: ['add', 'list', 'remove'],
+				description: 'Action to perform'
+			},
+			{
+				name: 'target',
+				type: 'string',
+				required: false,
+				default: '',
+				description: 'Player name or IP'
+			},
+			{
+				name: 'reason',
+				type: 'rest',
+				required: false,
+				default: [],
+				description: 'Ban reason (captures remaining args)'
+			}
+		]
+	},
 
-		const action = args[0].toLowerCase();
+	execute({ player, say }, args) {
+		const { action, target, reason } = args;
 
 		if (action === "list") {
 			return this._listBans(say);
 		}
 
 		if (action === "add") {
-			return this._addBan(sim, say, args.slice(1), player);
+			return this._addBan(say, target, reason, player);
 		}
 
 		if (action === "remove") {
-			return this._removeBan(say, args.slice(1));
+			return this._removeBan(say, target);
 		}
-
-		return say("Usage: .ban <add|list|remove> [name|ip] [reason]");
 	},
 
-	_addBan(sim, say, args, sender) {
-		if (!args.length) return say("Usage: .ban add <name|ip> [reason]");
+	_addBan(say, target, reason, sender) {
+		if (!target) return say("Usage: .ban add <name|ip> [reason]");
 
-		const name = args[0];
-		const reason = args.slice(1).join(" ") || "Banned";
-		const type = IP_REGEX.test(name) ? 'ip' : 'name';
+		const reasonStr = Array.isArray(reason) ? reason.join(' ') : reason || "Banned";
+		const type = IP_REGEX.test(target) ? 'ip' : 'name';
 		const senderName = sender?.name;
 
 		// Permission check for name bans
-		if (type === 'name' && senderName && name) {
-			if (senderName === name) {
+		if (type === 'name' && senderName && target) {
+			if (senderName === target) {
 				return say("You cannot ban yourself");
 			}
 			const senderRank = roles.rank(senderName);
-			const targetRank = roles.rank(name);
+			const targetRank = roles.rank(target);
 			// If target has no role, anyone with a role can ban
 			// Otherwise sender must have higher role (lower number)
 			if (targetRank === -1 ? senderRank === -1 : senderRank >= targetRank) {
-				return say(`Cannot ban ${name}: insufficient permissions`);
+				return say(`Cannot ban ${target}: insufficient permissions`);
 			}
 		}
 
 		// Check if already banned
-		if (bans.has(name)) {
-			return say(`${name} is already banned`);
+		if (bans.has(target)) {
+			return say(`${target} is already banned`);
 		}
 
 		// Add ban and save with reason
-		bans.add(name, reason);
+		bans.add(target, reasonStr);
 
 		// Kick if online
-		bus.emit('player:kick', { target: name, reason });
+		bus.emit('player:kick', { target, reason: reasonStr });
 
-		say(`Banned ${name}: ${reason}`);
+		say(`Banned ${target}: ${reasonStr}`);
 	},
 
-	_removeBan(say, args) {
-		if (!args.length) return say("Usage: .ban remove <name|ip>");
+	_removeBan(say, target) {
+		if (!target) return say("Usage: .ban remove <name|ip>");
 
-		const name = args[0];
-
-		if (!bans.remove(name)) {
-			return say(`${name} is not banned`);
+		if (!bans.remove(target)) {
+			return say(`${target} is not banned`);
 		}
 
-		say(`Unbanned ${name}`);
+		say(`Unbanned ${target}`);
 	},
 
 	_listBans(say) {

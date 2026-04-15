@@ -9,6 +9,7 @@ const { logger } = require("../lib/logger");
 const { getCommand, getAllCommands } = require("../commands");
 const bans = require("../lib/bans");
 const roles = require("../lib/roles");
+const { validateArgs, generateUsage } = require("../lib/args-validator");
 
 /**
  * Check if a player can execute a command.
@@ -148,6 +149,32 @@ class CommandWorker {
 			]),
 		};
 
+		// Validate args if schema exists
+		if (command.schema?.args) {
+			const commandName = `${command.prefix || "."}${command.name}`;
+			const result = validateArgs(args, command.schema, context);
+
+			if (!result.valid) {
+				const usage = generateUsage(commandName, command.schema);
+				context.say(`Usage: ${usage}`);
+				if (result.error) {
+					context.say(`Error: ${result.error}`);
+				}
+				logger.info("Command validation failed", { cmd: command.name, by: player?.name, error: result.error });
+				return;
+			}
+
+			// Pass validated object instead of array
+			try {
+				command.execute(context, result.args, message);
+				logger.info("Command executed", { cmd: command.name, by: player?.name });
+			} catch (err) {
+				logger.error("Command failed", { cmd: command.name, error: err.message });
+			}
+			return;
+		}
+
+		// Backward compatibility: commands without schema get raw array
 		try {
 			command.execute(context, args, message);
 			logger.info("Command executed", { cmd: command.name, by: player?.name });

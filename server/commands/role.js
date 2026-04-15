@@ -11,27 +11,46 @@ module.exports = {
 	description: "Add/remove a player from a role",
 	requiredRole: "owner",
 
-	execute({ sim, player, say }, args) {
-		if (args.length < 3) return say("Usage: .role <add|remove> <player> <role>");
+	schema: {
+		args: [
+			{
+				name: 'action',
+				type: 'enum',
+				required: true,
+				enum: ['add', 'remove'],
+				description: 'Action to perform'
+			},
+			{
+				name: 'player',
+				type: 'string',
+				required: true,
+				description: 'Player name'
+			},
+				{
+				name: 'role',
+				type: 'enum',
+				required: true,
+				enum: () => roles.roles.map(r => r.name),
+				description: 'Role to assign'
+			}
+		]
+	},
 
-		const action = args[0];
-		const name = args[1];
-		const role = args[2];
+	execute({ say }, args) {
+		const { action, player: name, role: roleName } = args;
 
 		// Check if role exists
-		if (roles.level(role) === -1) {
-			return say(`Role "${role}" does not exist`);
+		if (roles.level(roleName) === -1) {
+			return say(`Role "${roleName}" does not exist`);
 		}
 
 		switch (action) {
 			case 'add':
-				roles.add(name, role);
-				return say(`Added ${name} to ${role}`);
+				roles.add(name, roleName);
+				return say(`Added ${name} to ${roleName}`);
 			case 'remove':
-				roles.remove(name, role);
-				return say(`Removed ${name} from ${role}`);
-			default:
-				return say("Action must be 'add' or 'remove'");
+				roles.remove(name, roleName);
+				return say(`Removed ${name} from ${roleName}`);
 		}
 	},
 };
