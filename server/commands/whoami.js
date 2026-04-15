@@ -3,16 +3,15 @@
  * @module server/commands/whoami
  */
 
-const { getPlayerRole } = require("../lib/permissions");
+const roles = require("../lib/roles");
 
 module.exports = {
 	name: "whoami",
 	prefix: ".",
 	description: "Show your role",
 
-	execute({ player, permissions, say }) {
-		const roles = permissions.getRoles();
-		const role = getPlayerRole(roles, player.name);
+	execute({ player, say }) {
+		const role = roles.get(player.name);
 
 		if (!role) return say("You have no special role");
 		return say(`Your role: ${role}`);

@@ -7,6 +7,7 @@
 const { Listener } = require("../lib/listener");
 const { bus } = require("../lib/bus");
 const { logger } = require("../lib/logger");
+const bans = require("../lib/bans");
 
 /** @constant {number} Rate limit window in ms */
 const RATE_LIMIT_WINDOW = 1000;
@@ -76,7 +77,7 @@ class ClientWorker {
 		this.listener.on("error", (err) => this._onError(err));
 
 		// Listen for bus events
-		bus.on("permissions:kick", this._kickHandler);
+		bus.on("player:kick", this._kickHandler);
 	}
 
 	// === PRIVATE METHODS ===
@@ -160,24 +161,16 @@ class ClientWorker {
 		if (!result.valid) return this._rejectPlayer(result.reason || "Invalid credentials");
 
 		// Check if player is banned
-		bus.emit('permissions:check', {
-			name: this.player.name,
-			ip: this.clientIp,
-			callback: (checkResult) => this._handleBanCheck(checkResult)
-		});
-	}
+		const nameReason = bans.check(this.player.name);
+		const ipReason = bans.check(this.clientIp);
 
-	/** @private Handle ban check result. */
-	_handleBanCheck(result) {
-		if (!this.player || !this.player.connected) return;
-
-		if (result.banned) {
+		if (nameReason || ipReason) {
 			logger.info("Banned player attempted to join", {
 				name: this.player.name,
 				ip: this.clientIp,
-				reason: result.reason
+				reason: nameReason || ipReason
 			});
-			this._rejectPlayer(result.reason);
+			this._rejectPlayer(nameReason || ipReason);
 		} else {
 			this.validated = true;
 			logger.info("Player validated", { name: this.player.name });
@@ -244,7 +237,7 @@ class ClientWorker {
 		logger.info("Client disconnected", { id: this.id, code });
 
 		// Remove bus listener
-		bus.off("permissions:kick", this._kickHandler);
+		bus.off("player:kick", this._kickHandler);
 
 		// Cleanup player
 		if (this.context.players[this.id]) {

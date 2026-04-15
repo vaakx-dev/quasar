@@ -3,7 +3,7 @@
  * @module server/commands/role
  */
 
-const { bus } = require("../lib/bus");
+const roles = require("../lib/roles");
 
 module.exports = {
 	name: "role",
@@ -15,21 +15,21 @@ module.exports = {
 		if (args.length < 3) return say("Usage: .role <add|remove> <player> <role>");
 
 		const action = args[0];
-		const targetPlayer = args[1];
-		const roleName = args[2];
+		const name = args[1];
+		const role = args[2];
 
-		bus.emit('permissions:role', {
-			action,
-			player: targetPlayer,
-			role: roleName,
-			changedBy: player.name
-		});
+		// Check if role exists
+		if (roles.level(role) === -1) {
+			return say(`Role "${role}" does not exist`);
+		}
 
 		switch (action) {
 			case 'add':
-				return say(`Added ${targetPlayer} to ${roleName}`);
+				roles.add(name, role);
+				return say(`Added ${name} to ${role}`);
 			case 'remove':
-				return say(`Removed ${targetPlayer} from ${roleName}`);
+				roles.remove(name, role);
+				return say(`Removed ${name} from ${role}`);
 			default:
 				return say("Action must be 'add' or 'remove'");
 		}

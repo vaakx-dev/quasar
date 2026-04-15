@@ -10,7 +10,6 @@ const { ClientWorker } = require("./workers/client-worker");
 const { RootWorker } = require("./workers/root-worker");
 const { GameLoop } = require("./workers/game-loop");
 const { CommandWorker } = require("./workers/command-worker");
-const { PermissionsWorker } = require("./workers/permissions-worker");
 
 /**
  * Orchestrates WebSocket server, client workers, root connection, and game loop.
@@ -34,7 +33,6 @@ class Server {
 		this.rootWorker = null;
 		this.gameLoop = null;
 		this.commandWorker = null;
-		this.permissionsWorker = null;
 		this.startTime = Date.now();
 
 		// Bind handlers so we can remove them later
@@ -103,7 +101,6 @@ class Server {
 
 		this.gameLoop.stop();
 		this.commandWorker.stop();
-		this.permissionsWorker.stop();
 		Object.values(this.clientWorkers).forEach(w => w.listener.close());
 		this.wss.close();
 		this.rootWorker.stop();
@@ -134,14 +131,10 @@ class Server {
 
 	/** @private Create and start workers. */
 	_createWorkers() {
-		this.permissionsWorker = new PermissionsWorker(this.config);
-		this.permissionsWorker.start();
-
 		this.rootWorker = new RootWorker(this.sim, this.config);
 		this.rootWorker.start();
 
 		this.commandWorker = new CommandWorker(this.sim);
-		this.commandWorker.setPermissionsWorker(this.permissionsWorker);
 		this.commandWorker.start();
 
 		this.gameLoop = new GameLoop(this.sim, this.config);

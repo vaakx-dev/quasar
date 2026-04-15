@@ -7,7 +7,42 @@
 const { bus } = require("../lib/bus");
 const { logger } = require("../lib/logger");
 const { getCommand, getAllCommands } = require("../commands");
-const { canExecuteCommand } = require("../lib/permissions");
+const bans = require("../lib/bans");
+const roles = require("../lib/roles");
+
+/**
+ * Check if a player can execute a command.
+ * @private
+ * @param {string} name - Player name
+ * @param {Object} command - Command object
+ * @param {Object} player - Player object from sim
+ * @returns {boolean}
+ */
+function canExecuteCommand(name, command, player) {
+	// First check if banned
+	const banReason = bans.check(name);
+	if (banReason) return false;
+
+	// hostOverride: Host can always use this command
+	if (command.hostOverride && player?.host) return true;
+
+	// playerOverride: Any active player (not spectator) can use
+	if (command.playerOverride && player && player.side !== "spectators") return true;
+
+	// Check role requirement
+	if (command.requiredRole) {
+		const playerLevel = roles.rank(name);
+		if (playerLevel === -1) return false;
+
+		const requiredLevel = roles.level(command.requiredRole);
+		if (requiredLevel === -1) return false;
+
+		// Player's level must be >= required level (lower index = higher)
+		return playerLevel <= requiredLevel;
+	}
+
+	return true;
+}
 
 /**
  * Routes chat messages to command handlers.
@@ -21,8 +56,6 @@ class CommandWorker {
 	 */
 	constructor(sim) {
 		this.sim = sim;
-		this.permissionsWorker = null;
-
 		this._messageHandler = (message) => this._onMessage(message);
 	}
 
@@ -38,11 +71,6 @@ class CommandWorker {
 	stop() {
 		bus.off("root:message", this._messageHandler);
 		logger.info("CommandWorker stopped");
-	}
-
-	/** Set permissions worker reference. @param {PermissionsWorker} permissionsWorker */
-	setPermissionsWorker(permissionsWorker) {
-		this.permissionsWorker = permissionsWorker;
 	}
 
 	// === PRIVATE METHODS ===
@@ -88,30 +116,25 @@ class CommandWorker {
 		const player = this.sim.players.find((p) => p.name === message.name);
 
 		// Permission check
-		if (this.permissionsWorker) {
-			const roles = this.permissionsWorker.getRoles();
-			const bans = this.permissionsWorker.getBans();
-			if (!canExecuteCommand(roles, bans, message.name, command, player)) {
-				bus.emit("root:send", [
-					"message",
-					{
-						text: "You don't have permission to use this command",
-						channel: message.channel,
-						color: "FF0000",
-						name: "Server",
-						server: true,
-					},
-				]);
-				logger.warn("Permission denied", { cmd: command.name, player: message.name });
-				return;
-			}
+		if (!canExecuteCommand(message.name, command, player)) {
+			bus.emit("root:send", [
+				"message",
+				{
+					text: "You don't have permission to use this command",
+					channel: message.channel,
+					color: "FF0000",
+					name: "Server",
+					server: true,
+				},
+			]);
+			logger.warn("Permission denied", { cmd: command.name, player: message.name });
+			return;
 		}
 
 		const context = {
 			sim: this.sim,
 			player,
 			commands: getAllCommands(),
-			permissions: this.permissionsWorker,
 			send: (data) => bus.emit("root:send", data),
 			say: (msg) => bus.emit("root:send", [
 				"message",
