@@ -257,9 +257,6 @@
 				this._pos = v2.create();
 				this._pos2 = v2.create();
 				this.rot = 0;
-				if (this.sound) {
-					playSound(this.sound, this.soundVolume);
-				}
 			}
 
 			move() {
@@ -305,7 +302,6 @@
 		class Bullet extends Particle {
 			constructor() {
 				super();
-				actionMixer.action += 0.05;
 			}
 
 			applyDamage() {
@@ -696,7 +692,6 @@
 				this.frame = 0;
 				this.hitImage = `parts/hit${choose([1, 2, 3, 4, 5])}.png`;
 				this.rot = Math.random() * Math.PI * 2;
-				actionMixer.action += 0.5;
 			}
 		}
 
@@ -720,7 +715,6 @@
 				this.frame = 0;
 				this.hitImage = `parts/hitAuto${choose([1, 2, 3])}.png`;
 				this.rot = Math.random() * Math.PI * 2;
-				actionMixer.action += 0.5;
 			}
 		}
 
@@ -749,7 +743,6 @@
 			constructor(sound) {
 				super();
 				this.sound = sound;
-				actionMixer.action += 0.5;
 			}
 		}
 
