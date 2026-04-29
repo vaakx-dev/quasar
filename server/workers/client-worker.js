@@ -86,13 +86,7 @@ class ClientWorker {
 	/** @private Parse binary message, enforce rate limit, return {cmd, args}. */
 	_parseMessage(msg) {
 		// Rate limiting
-		if (!this._checkRateLimit()) {
-			logger.warn("Rate limit exceeded", {
-				id: this.id,
-				ip: this.clientIp,
-			});
-			throw new Error("Rate limited");
-		}
+		if (!this._checkRateLimit()) return logger.warn("Rate limit exceeded", { id: this.id, ip: this.clientIp });
 
 		const packet = new DataView(new Uint8Array(msg).buffer);
 		const data = this.context.sim.zJson.loadDv(packet);

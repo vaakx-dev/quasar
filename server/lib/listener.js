@@ -86,12 +86,19 @@ class Listener extends EventEmitter {
 		this.emit("open");
 	}
 
-	/** @private Parse message, filter by validCommands, emit as event. */
+	/**
+	 * @private Parse message, filter by validCommands, emit as event.
+	 * @throws {Error} Errors thrown by messageParser are caught and logged.
+	 */
 	_onMessage(msg) {
 		let parsed;
 		try {
 			parsed = this.messageParser(msg);
 		} catch (e) {
+			logger.error("Message parsing failed", {
+				error: e.message,
+				stack: e.stack,
+			});
 			return;
 		}
 
