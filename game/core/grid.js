@@ -217,8 +217,6 @@
 		}
 	};
 
-	window.genBuildPic = function (spec) {};
-
 	offset = function (part) {
 		var xoff, yoff;
 		if (part.size[0] % 2 === 1) {
