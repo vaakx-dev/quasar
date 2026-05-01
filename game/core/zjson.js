@@ -9,57 +9,13 @@
 		list wich both ends need to agree on
 		usuly used for keys that are present in every msg
    */
-	var COLLECT_STATS, MAX16, MAX32, MAX8, toHex;
-
-	Number.prototype.isInt = function (n) {
-		return n !== "" && !isNaN(n) && Math.round(n) === n;
-	};
-
-	Number.prototype.isFloat = function (n) {
-		return n !== "" && !isNaN(n) && Math.round(n) !== n;
-	};
+	var MAX16, MAX32, MAX8;
 
 	MAX8 = 256;
 
 	MAX16 = 256 * 256;
 
 	MAX32 = 256 * 256 * 256 * 256;
-
-	COLLECT_STATS = true;
-
-	window.commonZJsonStrings = {};
-
-	window.commonZJsonStringsGet = function () {
-		var k, list;
-		list = [];
-		for (k in commonZJsonStrings) {
-			if (commonZJsonStrings[k] > 2) {
-				list.push(k);
-			}
-		}
-		return console.log(list.sort().join("\n"));
-	};
-
-	window.commonZJsonBytePattrns = {};
-
-	window.commonZJsonBytePattrnsGet = function () {
-		var e, j, k, len, list, ref, results, v;
-		list = [];
-		for (k in commonZJsonBytePattrns) {
-			v = commonZJsonBytePattrns[k];
-			list.push([k, v]);
-		}
-		list = list.sort(function (a, b) {
-			return b[1] - a[1];
-		});
-		ref = list.slice(0, 256);
-		results = [];
-		for (j = 0, len = ref.length; j < len; j++) {
-			e = ref[j];
-			results.push(console.log(e[0], e[1]));
-		}
-		return results;
-	};
 
 	window.ZJson = function () {
 		class ZJson {
@@ -234,10 +190,6 @@
 							this.dv.setUint16(this.i, num);
 							return (this.i += 2);
 						} else {
-							if (COLLECT_STATS) {
-								commonZJsonStrings[json] =
-									(commonZJsonStrings[json] || 0) + 1;
-							}
 							length = json.length;
 							if (length < MAX8) {
 								this.dv.setUint8(this.i, this.STRING_MARK8);
@@ -479,44 +431,4 @@
 		return ZJson;
 	}.call(this);
 
-	toHex = function (number, n = 4) {
-		var hex;
-		hex = number.toString(16);
-		while (hex.length < n) {
-			hex = "0" + hex;
-		}
-		return hex;
-	};
-
-	window.hexDisplay = function (dv) {
-		var address, ascii, byte, bytes, i, j, r, results;
-		i = 0;
-		results = [];
-		while (i < dv.byteLength) {
-			address = toHex(i, 4);
-			bytes = [];
-			ascii = [];
-			for (r = j = 0; j < 16; r = ++j) {
-				if (i >= dv.byteLength) {
-					bytes.push("  ");
-					ascii.push(" ");
-				} else {
-					byte = dv.getUint8(i);
-					bytes.push(toHex(byte, 2));
-					if (20 < byte && byte < 128) {
-						ascii.push(String.fromCharCode(byte));
-					} else {
-						ascii.push(".");
-					}
-				}
-				i += 1;
-			}
-			results.push(
-				console.log(
-					address + "   " + bytes.join(" ") + "   " + ascii.join(""),
-				),
-			);
-		}
-		return results;
-	};
 }).call(this);
