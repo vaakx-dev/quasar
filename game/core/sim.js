@@ -4,10 +4,6 @@
 
 	DEBUG = 1;
 
-	window.VERSION = 0;
-
-	window.MINOR_VERSION = 3;
-
 	_pos = v2.create();
 
 	_vel = v2.create();
