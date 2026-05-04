@@ -1009,7 +1009,7 @@
 
 			stopAndClearOrders() {
 				if (this.orders.length > 0) {
-					this.onOrderId = this.orders.last().id + 1;
+					this.onOrderId = this.orders[this.orders.length - 1].id + 1;
 					this.orders = [];
 				}
 				this.holdPosition = false;
