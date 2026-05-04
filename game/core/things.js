@@ -17,8 +17,6 @@
 
 	_vec = v2.create(); // no need to allocate memory in tight loops
 
-	window.players = {};
-
 	window.Player = function () {
 		class Player {
 			constructor(id1) {
@@ -214,35 +212,6 @@
 	}.call(this);
 
 	_color = [0, 0, 0, 0];
-
-	window.Trail = class Trail {
-		constructor(parentId, trailSize, trailTime, color1, z) {
-			this.parentId = parentId;
-			this.trailSize = trailSize;
-			this.trailTime = trailTime;
-			this.color = color1;
-			if (typeof intp === "undefined" || intp === null) {
-				// no need for trails server side
-				return;
-			}
-			this.trail = [];
-			this.id = sim.nid();
-			intp.trails[this.id] = this;
-			this.z = z - 0.0001;
-		}
-
-		grow(pos) {
-			if (typeof intp === "undefined" || intp === null) {
-				return;
-			}
-			if (
-				this.trail.length === 0 ||
-				v2.distance(this.trail[this.trail.length - 1][0], pos) > 2
-			) {
-				return this.trail.push([[pos[0], pos[1]], intp.smoothStep]);
-			}
-		}
-	};
 
 	window.Particle = function () {
 		class Particle {
@@ -520,22 +489,6 @@
 		LaserBullet.prototype.maxLife = 3;
 
 		return LaserBullet;
-	}.call(this);
-
-	types.FlackExplosion = function () {
-		class FlackExplosion extends Explosion {}
-
-		FlackExplosion.prototype.image = "img/fire02.png";
-
-		FlackExplosion.prototype.maxLife = 3;
-
-		FlackExplosion.prototype.radius = 2;
-
-		FlackExplosion.prototype.sound = "sounds/weapons/thud1.wav";
-
-		FlackExplosion.prototype.soundVolume = 0.1;
-
-		return FlackExplosion;
 	}.call(this);
 
 	window.AoeBullet = function () {
