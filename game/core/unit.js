@@ -15,8 +15,6 @@
 			}
 		};
 
-	window.thumb_cache = {};
-
 	window.turnAngle = function (a, b, speed) {
 		var turn;
 		speed = speed;
