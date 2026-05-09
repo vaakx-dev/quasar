@@ -135,53 +135,6 @@
 				return null;
 			}
 
-			hash() {
-				var ai,
-					hash,
-					j,
-					l,
-					len,
-					len1,
-					len2,
-					m,
-					part,
-					ref,
-					ref1,
-					ref2,
-					ref3,
-					spec,
-					stringifyPart;
-				stringifyPart = function (p) {
-					return JSON.stringify({
-						name: p.name,
-						pos: p.pos,
-						dir: p.dir,
-					});
-				};
-				hash = sha1(this.name);
-				ref = this.buildBar;
-				for (j = 0, len = ref.length; j < len; j++) {
-					spec = ref[j];
-					spec = fromShort(spec);
-					hash = sha1(hash + (spec.name || ""));
-					ref2 =
-						((ref1 = spec.aiRules) != null
-							? ref1.map(function (ai) {
-									return JSON.stringify(ai);
-								})
-							: void 0) || [];
-					for (l = 0, len1 = ref2.length; l < len1; l++) {
-						ai = ref2[l];
-						hash = sha1(hash + ai);
-					}
-					ref3 = spec.parts.map(stringifyPart).sort();
-					for (m = 0, len2 = ref3.length; m < len2; m++) {
-						part = ref3[m];
-						hash = sha1(hash + part);
-					}
-				}
-				return hash;
-			}
 		}
 
 		Player.prototype.gainsMoney = true; // stop player from making money
