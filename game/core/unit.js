@@ -5,7 +5,6 @@
 		_pipPos,
 		_vel,
 		_where,
-		legacyParts,
 		ref,
 		boundMethodCheck = function (instance, Constructor) {
 			if (!(instance instanceof Constructor)) {

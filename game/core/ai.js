@@ -28,7 +28,6 @@
 		counterNeed,
 		doUnitAi,
 		doUnitRules,
-		esc_string,
 		g,
 		goAway,
 		goInRange,
@@ -277,10 +276,6 @@
 	];
 
 	allAiRules["decal"] = [];
-
-	esc_string = function (s) {
-		return '"' + s.replace(/[\\"]/g, "\\$1") + '"'; //'
-	};
 
 	ais.allRuleSet = {};
 

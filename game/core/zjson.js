@@ -234,19 +234,6 @@
 				var json;
 				this.i = 0;
 				json = this.loadNode(dv);
-				/*
-        if COLLECT_STATS
-         * look at common byte patterns
-            bp = commonZJsonBytePattrns
-            for i in [0...dv.byteLength]
-                for pattern in [1...4]
-                    if i + pattern < dv.byteLength
-                        arr = []
-                        for n in [0...pattern]
-                            arr.push(dv.getUint8(i + n))
-                        key = arr.join(",")
-                        bp[key] = (bp[key] or 0) + 1
-         */
 				return json;
 			}
 
