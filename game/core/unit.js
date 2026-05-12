@@ -1630,12 +1630,11 @@
 				parts: [],
 			};
 		}
+		if (typeof rawShort === "object") {
+			if (rawShort.parts != null) return rawShort;
+			return { parts: [] };
+		}
 		try {
-			if (typeof rawShort === "object") {
-				if (rawShort.parts != null) {
-					return rawShort;
-				}
-			}
 			spec = JSON.parse(rawShort);
 			if (!spec.parts) {
 				spec = {
