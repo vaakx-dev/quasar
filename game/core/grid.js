@@ -363,14 +363,6 @@
 						badParts.push(part);
 						continue;
 					}
-					if (
-						sim.galaxyStar &&
-						player.id === commander.id &&
-						!galaxyMode.unlockedParts[part.constructor.name]
-					) {
-						t.bad = true;
-						t.locked = true;
-					}
 					if (part.paintable) {
 						t.paintable = true;
 					}
