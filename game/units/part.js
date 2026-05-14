@@ -1,7 +1,5 @@
 (function () {
-	var _color,
-		_offset,
-		ref,
+	var ref,
 		boundMethodCheck = function (instance, Constructor) {
 			if (!(instance instanceof Constructor)) {
 				throw new Error(
@@ -64,8 +62,6 @@
 		return Part;
 	}.call(this);
 
-	_color = [0, 0, 0, 0];
-
 	window.Engine = function () {
 		class Engine extends Part {
 		}
@@ -78,8 +74,6 @@
 
 		return Engine;
 	}.call(this);
-
-	_offset = [0, 0];
 
 	ref = window.Turret = function () {
 		class Turret extends Part {

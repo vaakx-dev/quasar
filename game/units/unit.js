@@ -1,13 +1,7 @@
 (function () {
-	var _pipPos,
-		_where,
-		_vel;
-
-	_pipPos = v2.create();
+	var _where;
 
 	_where = [0, 0];
-
-	_vel = [0, 0];
 
 	types.Unit = function () {
 		class Unit {

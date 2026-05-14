@@ -1,10 +1,4 @@
 (function () {
-	var _focus, _size, anitSideColor, sideColor;
-
-	_focus = v2.create();
-
-	_size = v2.create();
-
 	types.Rock = function () {
 		class Rock {
 			constructor() {
@@ -34,40 +28,6 @@
 
 		return Rock;
 	}.call(this);
-
-	sideColor = function (side) {
-		var color, mySide;
-		mySide =
-			typeof commander !== "undefined" && commander !== null
-				? commander.side
-				: void 0;
-		if (mySide !== "beta") {
-			mySide = "alpha";
-		}
-		if (mySide === side) {
-			color = [230, 230, 230, 255];
-		} else {
-			color = [20, 20, 20, 255];
-		}
-		return color;
-	};
-
-	anitSideColor = function (side) {
-		var color, mySide;
-		mySide =
-			typeof commander !== "undefined" && commander !== null
-				? commander.side
-				: void 0;
-		if (mySide === "spectators") {
-			mySide = "alpha";
-		}
-		if (mySide !== side) {
-			color = [230, 230, 230, 255];
-		} else {
-			color = [20, 20, 20, 255];
-		}
-		return color;
-	};
 
 	types.CommandPoint = function () {
 		class CommandPoint {

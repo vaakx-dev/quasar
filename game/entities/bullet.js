@@ -1,8 +1,4 @@
 (function () {
-	var _offset;
-
-	_offset = v2.create();
-
 	window.Bullet = function () {
 		class Bullet extends Particle {
 			constructor() {

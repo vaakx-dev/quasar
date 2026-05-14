@@ -1,8 +1,4 @@
 (function () {
-	var _color;
-
-	_color = [0, 0, 0, 0];
-
 	window.Particle = function () {
 		class Particle {
 			constructor() {
