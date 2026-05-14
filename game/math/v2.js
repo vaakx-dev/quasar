@@ -1,4 +1,3 @@
-// Extracted from game/core/maths.js (CoffeeScript 2.7.0 output)
 (function () {
 	var v2;
 
