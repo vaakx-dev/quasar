@@ -8,7 +8,7 @@ require('./fix.js');
 require('./lib/mtwist.js');
 require('./core/hspace.js');
 require('./core/protocol.js');
-require('./core/maths.js');
+require('./math/index.js');
 require('./core/maps.js');
 require('./core/sim.js');
 require('./core/things.js');
