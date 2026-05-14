@@ -14,7 +14,7 @@ require('./core/sim.js');
 require('./core/things.js');
 require('./core/unit.js');
 require('./core/parts.js');
-require('./core/ai.js');
+require('./ai/index.js');
 require('./core/aidata.js');
 require('./core/grid.js');
 require('./core/colors.js');
