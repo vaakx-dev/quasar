@@ -12,6 +12,7 @@ require('./math/index.js');
 require('./core/maps.js');
 require('./core/sim.js');
 require('./core/things.js');
+require('./entities/index.js');
 require('./units/index.js');
 require('./core/parts.js');
 require('./ai/index.js');
